@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -c 1
-#SBATCH --mem=1g
-#SBATCH -t 12:00:00
+#SBATCH -c 2
+#SBATCH --mem-per-cpu 1999MB
+#SBATCH -t 06:00:00
 #SBATCH -p RM-shared
 #SBATCH -o ./logs/slurm-%j.out
 #
