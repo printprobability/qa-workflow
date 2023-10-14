@@ -11,13 +11,13 @@
 # Runs autocrop QA script on given book directory
 # NOTE: All autocropping types are done in one run of the QA script
 
-ANACONDA_ENVIRONMENT=/ocean/projects/hum160002p/gsell/.conda/envs/my_env
-
+# 1. Load the environment
 source ~/.bashrc
 module load anaconda3
 conda init
-conda activate "$ANACONDA_ENVIRONMENT"
+conda activate "/ocean/projects/hum160002p/gsell/.conda/envs/my_env"
 
+# 2. Run the QA script
 if [ -z "$2" ]
 then
   python3 test_autocrop.py $1
