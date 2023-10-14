@@ -11,29 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from PIL import Image
 from prepare_alignment_input_csv import *
-
-# Utility functions
-
-def format_path(original_path):
-
-    return original_path if original_path.endswith(os.sep) else original_path + os.sep
-
-# return_types - "subfolders" and/or "files"
-def typed_listdir(path, return_types=[]):
-
-    directory_contents = os.listdir(path)
-    returned_contents = []
-
-    for dI in directory_contents:
-
-        if "subfolders" in return_types:
-            if os.path.isdir(os.path.join(path, dI)):
-                returned_contents.append(dI)
-        elif "files" in return_types:
-            if not os.path.isdir(os.path.join(path, dI)):
-                returned_contents.append(dI)
-
-    return returned_contents
+from qa_utilities import *
 
 
 # Main script functions
@@ -90,7 +68,7 @@ def output_stats(args):
     # 1. Determine info about the original images
 
     # A. The number of original images
-    csv_results[book_name]["original"]["file_count"] = len(typed_listdir(str(book_dir), ["files"]))
+    csv_results[book_name]["original"]["file_count"] = len(get_items_in_dir(str(book_dir), ["files"]))
     csv_results[book_name]["original"]["images"] = {}
 
     # B. Gather stats on the original book images
@@ -122,7 +100,7 @@ def output_stats(args):
     csv_results[book_name][autocrop_type] = {}
 
     # A. The number of autocropped images
-    csv_results[book_name][autocrop_type]["file_count"] = len(typed_listdir(autocrop_type_subfolder, ["files"]))
+    csv_results[book_name][autocrop_type]["file_count"] = len(get_items_in_dir(autocrop_type_subfolder, ["files"]))
     csv_results[book_name][autocrop_type]["images"] = {} 
 
     # B. Gather stats on autocropped images and compare to original images
