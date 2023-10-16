@@ -11,9 +11,9 @@ import argparse
 import glob
 import json
 import os
-import pyyaml
+import yaml
 import subprocess
-from jsonschema import validate
+from pathlib import Path
 
 # Custom
 from qa_utilities import *
@@ -21,7 +21,7 @@ from qa_utilities import *
 
 # Globals
 
-qa_config = None
+qa_config = {}
 slurm_job_results = None
 VALID_COMMANDS = ["clear_output", "run_qa", "collate_results"]
 VALID_QA_TYPES = ["autocrop"]
@@ -50,7 +50,7 @@ def run_qa():
     if "autocrop" == qa_config["QA_TYPE"]:
 
         if "single" == qa_config["RUN_TYPE"]:
-            slurm_job_results = qa_autocrop_on_book(os.path.basename(qa_config["BOOK_DIRECTORY"])
+            slurm_job_results = qa_autocrop_on_book(os.path.basename(qa_config["BOOK_DIRECTORY"]))
         else:
             slurm_job_results = qa_autocrop_on_all_books()
 
@@ -66,9 +66,9 @@ def qa_autocrop_on_book(p_book_name):
 
     return subprocess.Popen([
         "sbatch",
-        "-o", "{0}slurm-{1}.out".format(qa_config["OUTPUT_DIRECTORY"],  
+        "-o", "{0}slurm-{1}.out".format(qa_config["OUTPUT_DIRECTORY"]),  
         "qa_autocrop.sh",
-        format_path(qa_config["BOOKS_DIRECTORY"] + directory),
+        format_path(qa_config["BOOK_DIRECTORY"] + directory),
         qa_config["COMMANDS"]
     ])
 
@@ -80,7 +80,7 @@ def handle_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "qa_function",
-        help="Part of the pipeline you want to QA. Current options: 'autocrop'"
+        help="Part of the pipeline you want to QA. Current options: 'autocrop'")
     parser.add_argument(
         "--config_file",
         help="Path to a yaml configuration file for your QA run")
@@ -93,7 +93,7 @@ def handle_args():
     parser.add_argument(
         "--single-book",
         action="store_true",
-        help="QA the cropping of a single book. NOTE: Requires a '--book_directory' and an '--output_directory'"
+        help="QA the cropping of a single book. NOTE: Requires a '--book_directory' and an '--output_directory'")
 
     # 2. Run argparser over args given for this script run
     args = parser.parse_args()
@@ -101,7 +101,7 @@ def handle_args():
     # 3. Determine if arg requirements are met
     success = True
     if not args.qa_function:
-        print("Must specify QA function type. Current options: 'autocrop'"
+        print("Must specify QA function type. Current options: 'autocrop'")
         success = False
     if not(args.single_book or args.config_file) or \
         (args.single_book and args.config_file):
@@ -115,21 +115,24 @@ def handle_args():
         if not os.path.exists(args.book_directory):
             print("Book directory: {0} does not exist.".format(args.book_directory))
         elif not os.path.isdir(args.book_directory):
-            print("Book directory: {0} is not a directory.".format(args.book_directory)
+            print("Book directory: {0} is not a directory.".format(args.book_directory))
             success = False
     elif args.config_file:
         if not os.path.exists(args.config_file):
             print("Config file: {0} does not exist.".format(args.config_file))
             success = False
-        elif not os.path.isfile(args.config_file)):
+        elif not os.path.isfile(args.config_file):
             print("Config file: {0} is not a file.".format(args.config_file))
             success = False
     if args.output_directory:
-        if not os.path.exists(args.output_directory):
-            print("Output directory: {0} does not exist.".format(args.output_directory))
+        # stolast_sep = args.output_directory[:args.output_directory.rfind(os.sep)].rfind(os.sep)
+        # output_parent_dir = args.output_directory[0:stolast_sep]
+        output_parent_directory = Path(args.output_directory).parent
+        if not os.path.exists(output_parent_directory):
+            print("Output directory's parent: {0} does not exist.".format(output_parent_directory))
             success = False
-        elif not os.path.isdir(args.output_directory):
-            print("Output directory: {0} is not a directory.".format(args.output_directory))
+        elif not os.path.isdir(output_parent_directory):
+            print("Output directory's parent: {0} is not a directory.".format(output_parent_directory))
             success = False
 
     return args, success
@@ -137,7 +140,7 @@ def handle_args():
 def save_config(p_args):
 
     success = True
-    config_required_fields = ["QA_TYPE", "BOOK_DIRECTORY"]
+    config_required_fields = ["BOOK_DIRECTORY"]
 
     # 1. Save default config values
     qa_config["COMMANDS"]=["run_qa"]
@@ -152,12 +155,13 @@ def save_config(p_args):
 
         qa_config["RUN_TYPE"] = "single"
         qa_config["BOOK_DIRECTORY"] = p_args.book_directory
+        qa_config["QA_TYPE"] = p_args.qa_function
 
         # A. Check for TIF images in the book directory
         items = get_items_in_dir(qa_config["BOOK_DIRECTORY"], return_types=["files"])
         found_tif = False
         for item in items:
-            if item.lowercase().endswith(".tif")
+            if item.lowercase().endswith(".tif"):
                 found_tif = True
         if not found_tif:
             print("Could not find any tif images in the book directory: {0}.".format(qa_config["BOOK_DIRECTORY"]))
@@ -165,22 +169,21 @@ def save_config(p_args):
     else:
 
         qa_config["RUN_TYPE"] = "multi"
+        qa_config["QA_TYPE"] = p_args.qa_function
 
         # A. Read in config yaml file and save its fields
         with open(p_args.config_file, "r") as config_file:
             config_yaml = yaml.safe_load(config_file)
         if "BOOK_DIRECTORY" in config_yaml:
-            qa_config["BOOK_DIRECTORY"] = config_yaml.BOOK_DIRECTORY
+            qa_config["BOOK_DIRECTORY"] = config_yaml["BOOK_DIRECTORY"]
         if "COMMANDS" in config_yaml:
-            qa_config["COMMANDS"] = config_yaml.COMMANDS
+            qa_config["COMMANDS"] = config_yaml["COMMANDS"]
         if "OUTPUT_DIRECTORY" in config_yaml:
-            qa_config["OUTPUT_DIRECTORY"] = config_yaml.OUTPUT_DIRECTORY
-        if "QA_TYPE" in config_yaml:
-            qa_config["QA_TYPE"] = config_yaml.QA_TYPE
+            qa_config["OUTPUT_DIRECTORY"] = config_yaml["OUTPUT_DIRECTORY"]
 
         # B. Check contents of config file
-        if not all(cmd in config_required_fields for cmd in config_yaml.keys()):
-            print("Config files require at least 'QA_TYPE' and 'BOOK_DIRECTORY' keys.")
+        if not all(cmd in config_yaml.keys() for cmd in config_required_fields):
+            print("Config files require at least the 'BOOK_DIRECTORY' key.")
             success = False
         for cmd in qa_config["COMMANDS"]:
             if cmd not in VALID_COMMANDS:
@@ -197,11 +200,12 @@ def save_config(p_args):
     elif not os.path.isdir(qa_config["BOOK_DIRECTORY"]):
         print("Book directory: {0} is not a directory.".format(qa_config["BOOK_DIRECTORY"]))
         success = False
-    if not os.path.exists(qa_config["OUTPUT_DIRECTORY"]):
-        print("Output directory: {0} does not exist.".format(qa_config["OUTPUT_DIRECTORY"]))
+    output_parent_directory = Path(qa_config["OUTPUT_DIRECTORY"]).parent
+    if not os.path.exists(output_parent_directory):
+        print("Output directory's parent: {0} does not exist.".format(output_parent_directory))
         success = False
-    elif not os.path.isdir(qa_config["OUTPUT_DIRECTORY"]):
-        print("Output directory: {0} is not a directory.".format(qa_config["OUTPUT_DIRECTORY"]))
+    elif not os.path.isdir(output_parent_directory):
+        print("Output directory: {0} is not a directory.".format(output_parent_directory))
         success = False            
 
     return success
@@ -214,7 +218,7 @@ def main():
         exit()
     
     # 2. Save args for QA run
-    if not save_config(args)
+    if not save_config(args):
         exit()
 
     # 3. Run QA commands from loaded config
