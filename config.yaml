@@ -1,5 +1,4 @@
 # Example configuration
-BOOKS_DIRECTORY: "/my/books/source/folder/"
+BOOK_DIRECTORY: "/my/books/source/folder/"
 OUTPUT_DIRECTORY: "/my/output/folder/for/cropped_images/and/qa_run_metadata/"
-QA_TYPE: "autocrop"
 COMMANDS: ["clear_output", "run_qa", "collate_results"]
