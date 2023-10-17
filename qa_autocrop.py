@@ -4,9 +4,7 @@ Tests the autocropper on the test set of books created by create_autocrop_test_d
 import csv
 import numpy as np
 import os
-import shutil
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
@@ -22,12 +20,7 @@ def run_autocrop(args):
     
     autocrop_type = "threshold_by_inside" if args.threshold_by_inside else "non_threshold_by_inside"
     book_dir = args.autocrop_test_dir
-    
-    # books = ["/ocean/projects/hum160002p/shared/books/test_autocrop/newcomb_R233270_uk_4_sermonpreachedjuly1676"]
-    # for book_dir in books:
-    # for book_dir in Path(format_path(args.autocrop_test_dir)).glob('*'):
-    # for autocrop_type in autocrop_types:
-        
+            
     # Determine output path for cropped images
     output_path = "{0}results{1}".format(format_path(str(book_dir)), os.sep)
     output_path += "threshold_by_inside" if "threshold_by_inside" == autocrop_type else "non_threshold_by_inside"
@@ -36,7 +29,6 @@ def run_autocrop(args):
         os.makedirs(output_path)
 
     # Run and test auto_crop.py on each book using subprocess
-    # print(f"Running auto_crop.py on {book_dir}")
     subprocess_args = ["python3", "../auto_crop.py", "--path", str(book_dir), "--output_path", output_path]
     if "threshold_by_inside" == autocrop_type:
         subprocess_args.append("--threshold_by_inside")
@@ -51,19 +43,13 @@ def output_stats(args):
 
     csv_results = {}
 
-    # books = ["/ocean/projects/hum160002p/shared/books/test_autocrop/newcomb_R233270_uk_4_sermonpreachedjuly1676"]
-    # for book_dir in books:
-    # for book_dir in Path(args.autocrop_test_dir).glob('*'):
-
     book_dir = args.autocrop_test_dir
     book_name = os.path.basename(book_dir[0:len(book_dir)-1])
     csv_results[book_name] = { "original": {} }
-    # results_folder = "{0}{1}{2}results{2}".format(output_folder, book_name, os.sep)
     results_folder = "{0}results{1}".format(output_folder, os.sep)
 
     print("Book dir: {0}".format(book_dir))
     print("Book name: {0}".format(book_name))
-    # print("Results folder: {0}".format(results_folder))
 
     # 1. Determine info about the original images
 
@@ -88,13 +74,10 @@ def output_stats(args):
         csv_results[book_name]["original"]["images"][image_name]["area_diff_from_original"] = 0
         csv_results[book_name]["original"]["images"][image_name]["frobenius_norm_from_original"] = 0
 
-    # print("AUTOCROP TYPES: {0}".format(autocrop_types))
-
     # 2. Comparisons between originals and autocrop run
     # for autocrop_type in autocrop_types:
     autocrop_type = "threshold_by_inside" if args.threshold_by_inside else "non_threshold_by_inside"
 
-    # print("Autocrop {0} comparison".format(autocrop_type))
     autocrop_type_subfolder = results_folder + autocrop_type
 
     csv_results[book_name][autocrop_type] = {}
@@ -142,11 +125,8 @@ def output_stats(args):
     # 3. Output a csv file of these stats in the autocrop result folder
     for book_name in csv_results:
 
-        # results_folder = "{0}{1}{2}results{2}".format(output_folder, book_name, os.sep)
         results_folder = "{0}results{1}".format(output_folder, os.sep)
         stats_filepath = results_folder + "autocrop_results_{0}.csv".format(datetime.now().timestamp())
-
-        # print("Writing to {0} for book {1}".format(stats_filepath, book_name))
 
         with open(stats_filepath, "w") as output_file:
 
@@ -154,18 +134,9 @@ def output_stats(args):
 
             csv_writer.writerow(["book_name", "total_page_count", "autocrop_type", "image_name", "image_area", "area_diff_from_original", "frobenius_norm_from_original"])
 
-            # print("Attempting to write autocropped images rows with csv_results[book_name].keys(): {0}".format(csv_results[book_name].keys()))
-
             for autocrop_type in csv_results[book_name]:
-                # print("Loop 1 for autocrop_type".format(autocrop_type))
-                for image_name in csv_results[book_name][autocrop_type]["images"]:
-                    # print("Loop 2 for images: {0}".format(csv_results[book_name][autocrop_type]["images"]))
-                    # print("Image: {0}".format(image_name))
 
-                    # print("Writing row: {0}".format([book_name, csv_results[book_name][autocrop_type]["file_count"], autocrop_type, image_name,
-                    #                      csv_results[book_name][autocrop_type]["images"][image_name]["image_area"],
-                    #                      csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"],
-                    #                      csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"]]))
+                for image_name in csv_results[book_name][autocrop_type]["images"]:
 
                     csv_writer.writerow([book_name, csv_results[book_name][autocrop_type]["file_count"], autocrop_type, image_name,
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_area"],
