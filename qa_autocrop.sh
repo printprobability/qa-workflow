@@ -20,9 +20,9 @@ conda activate "/ocean/projects/hum160002p/gsell/.conda/envs/my_env"
 # 2. Run the QA script
 if [ -z "$2" ]
 then
-  python3 test_autocrop.py $1
+  python3 qa_autocrop.py $1
 else
-  python3 test_autocrop.py $1 $2
+  python3 qa_autocrop.py $1 $2
 fi
 
 

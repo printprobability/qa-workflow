@@ -58,18 +58,17 @@ def qa_autocrop_on_all_books():
 
     return [ qa_autocrop_on_book(book_name) \
         for book_name in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]) \
-        if output_folder != book_name ]
+        if qa_config["OUTPUT_DIRECTORY"] != book_name ]
 
 def qa_autocrop_on_book(p_book_name):
 
-    print("Creating slurm job for QA of cropping " + directory)
+    print("Creating slurm job for QA of cropping " + p_book_name)
 
     return subprocess.Popen([
         "sbatch",
-        "-o", "{0}slurm-{1}.out".format(qa_config["OUTPUT_DIRECTORY"]),  
+        "-o", "{0}slurm-{1}.out".format(qa_config["OUTPUT_DIRECTORY"], p_book_name),  
         "qa_autocrop.sh",
-        format_path(qa_config["BOOK_DIRECTORY"] + directory),
-        qa_config["COMMANDS"]
+        format_path(qa_config["BOOK_DIRECTORY"] + p_book_name)
     ])
 
 # Main script
@@ -103,10 +102,11 @@ def handle_args():
     if not args.qa_function:
         print("Must specify QA function type. Current options: 'autocrop'")
         success = False
-    if not(args.single_book or args.config_file) or \
-        (args.single_book and args.config_file):
-        print("QA script must specify single book or book directory via config file.")
-        success = False
+    # NOTE: The current assumption is that single books are only run via arguments and not the config file
+    # if not(args.single_book or args.config_file) or \
+    #     (args.single_book and args.config_file):
+    #     print("QA script must specify single book or book directory via config file.")
+    #     success = False
     elif args.single_book:
         if not (args.book_directory and args.output_directory):
             print("Single book runs must specify the book directory.")
