@@ -18,11 +18,12 @@ conda init
 conda activate "/ocean/projects/hum160002p/gsell/.conda/envs/my_env"
 
 # 2. Run the QA script
-if [ -z "$2" ]
+if [ -z "$1" ]
 then
-  python3 qa_autocrop.py $1
+  echo "qa_autocrop.sh must be supplied with a book directory."
 else
-  python3 qa_autocrop.py $1 $2
+  echo "QAing autocrop for $(basename $1)..."
+  python3 qa_autocrop.py $1
 fi
 
 
