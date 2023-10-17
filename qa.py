@@ -13,6 +13,7 @@ import json
 import os
 import yaml
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 # Custom
@@ -23,6 +24,8 @@ from qa_utilities import *
 
 qa_config = {}
 slurm_job_results = None
+
+# Constants
 VALID_COMMANDS = ["clear_output", "run_qa", "collate_results"]
 VALID_QA_TYPES = ["autocrop"]
 DEFAULT_OUTPUT_DIRECTORY = "output"
@@ -62,8 +65,13 @@ def qa_autocrop_on_all_books():
 
 def qa_autocrop_on_book(p_book_name):
 
-    print("Creating slurm job for QA of cropping " + p_book_name)
+    # 1. Determine output path for slurm log files and create it if it does not exist
+    output_path = "{0}{1}_{2}{3}".format(format_path(qa_config["OUTPUT_DIRECTORY"]), p_book_name, datetime.now().timestamp(), os.sep)
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
 
+    # 2. Start a process to test autocropping methods on this book
+    print("Creating slurm job for QA of cropping " + p_book_name)
     return subprocess.Popen([
         "sbatch",
         "-o", "{0}slurm-{1}.out".format(qa_config["OUTPUT_DIRECTORY"], p_book_name),  
@@ -125,8 +133,6 @@ def handle_args():
             print("Config file: {0} is not a file.".format(args.config_file))
             success = False
     if args.output_directory:
-        # stolast_sep = args.output_directory[:args.output_directory.rfind(os.sep)].rfind(os.sep)
-        # output_parent_dir = args.output_directory[0:stolast_sep]
         output_parent_directory = Path(args.output_directory).parent
         if not os.path.exists(output_parent_directory):
             print("Output directory's parent: {0} does not exist.".format(output_parent_directory))

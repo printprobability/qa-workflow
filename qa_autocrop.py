@@ -12,25 +12,32 @@ from prepare_alignment_input_csv import *
 from qa_utilities import *
 
 
+# Globals
+
+# Constants
+
+CROPTYPE_THRESHOLD_BY_INSIDE = "threshold_by_inside"
+CROPTYPE_NON_THRESHOLD_BY_INSIDE = "non_threshold_by_inside"
+
+AUTOCROP_SCRIPT_LOCATION = "..{0}auto_crop.py".format(os.sep)
+
+
 # Main script functions
 
 def run_autocrop(args):
 
     """ Call auto_crop.py for the given book """
     
-    autocrop_type = "threshold_by_inside" if args.threshold_by_inside else "non_threshold_by_inside"
-    book_dir = args.autocrop_test_dir
+    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
             
-    # Determine output path for cropped images
-    output_path = "{0}results{1}".format(format_path(str(book_dir)), os.sep)
-    output_path += "threshold_by_inside" if "threshold_by_inside" == autocrop_type else "non_threshold_by_inside"
-    output_path += os.sep
+    # 1. Determine output path for cropped images and create it if it does not exist
+    output_path = "{0}results{1}{2}{1}".format(format_path(str(args.book_directory)), os.sep, autocrop_type)
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
-    # Run and test auto_crop.py on each book using subprocess
-    subprocess_args = ["python3", "../auto_crop.py", "--path", str(book_dir), "--output_path", output_path]
-    if "threshold_by_inside" == autocrop_type:
+    # 2. Run auto_crop.py on the book with the given arguments
+    subprocess_args = ["python3", AUTOCROP_SCRIPT_LOCATION, "--path", str(args.book_directory), "--output_path", output_path]
+    if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
         subprocess_args.append("--threshold_by_inside")
     subprocess_args.append("*.tif")
     subprocess.run(subprocess_args)
@@ -38,12 +45,12 @@ def run_autocrop(args):
 
 def output_stats(args):
 
-    # 0. Output paths
-    output_folder = format_path(args.autocrop_test_dir)
+    # 0. Output path
+    output_folder = format_path(args.book_directory)
 
     csv_results = {}
 
-    book_dir = args.autocrop_test_dir
+    book_dir = args.book_directory
     book_name = os.path.basename(book_dir[0:len(book_dir)-1])
     csv_results[book_name] = { "original": {} }
     results_folder = "{0}results{1}".format(output_folder, os.sep)
@@ -58,8 +65,7 @@ def output_stats(args):
     csv_results[book_name]["original"]["images"] = {}
 
     # B. Gather stats on the original book images
-    # for image_filepath in Path(args.autocrop_test_dir + os.sep + book_name).glob("*.tif"):
-    for image_filepath in Path(args.autocrop_test_dir).glob("*.tif"):
+    for image_filepath in Path(args.book_directory).glob("*.tif"):
 
         img = Image.open(image_filepath)
         image_name = os.path.basename(image_filepath)
@@ -72,11 +78,12 @@ def output_stats(args):
 
         # N/A values
         csv_results[book_name]["original"]["images"][image_name]["area_diff_from_original"] = 0
+        csv_results[book_name]["original"]["images"][image_name]["percent_area_diff_from_original"] = 0
         csv_results[book_name]["original"]["images"][image_name]["frobenius_norm_from_original"] = 0
 
     # 2. Comparisons between originals and autocrop run
     # for autocrop_type in autocrop_types:
-    autocrop_type = "threshold_by_inside" if args.threshold_by_inside else "non_threshold_by_inside"
+    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
 
     autocrop_type_subfolder = results_folder + autocrop_type
 
@@ -103,6 +110,9 @@ def output_stats(args):
         csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = \
             csv_results[book_name]["original"]["images"][original_image_name]["image_area"] - \
             csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]
+        csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = 100.0f * \
+            (float(csv_results[book_name]["original"]["images"][image_name]["image_area"]) / \
+             float(csv_results[book_name]["original"]["images"][original_image_name]["image_area"]))
 
         # III. Frobenius norm between original and autocropped images
 
@@ -139,17 +149,18 @@ def output_stats(args):
                 for image_name in csv_results[book_name][autocrop_type]["images"]:
 
                     csv_writer.writerow([book_name, csv_results[book_name][autocrop_type]["file_count"], autocrop_type, image_name,
+                                         csv_results[book_name][autocrop_type]["images"][image_name]["image_width"],
+                                         csv_results[book_name][autocrop_type]["images"][image_name]["image_height"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_area"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"]])
-
 
 def parse_args():
 
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("autocrop_test_dir", help="Directory containing the images of one book copied using the create_autocrop_test_dir.py script")
+    parser.add_argument("book_directory", help="Directory containing the images of one book copied using the create_autocrop_test_dir.py script")
     parser.add_argument("--threshold_by_inside", help="Computes binary threshold off inner chunk of page.", action="store_true")
 
     args = parser.parse_args()

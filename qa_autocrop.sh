@@ -24,6 +24,7 @@ then
 else
   echo "QAing autocrop for $(basename $1)..."
   python3 qa_autocrop.py $1
+  python3 qa_autocrop.py $1 --threshold_by_inside
 fi
 
 
