@@ -10,6 +10,15 @@ import os
 
 # Functions
 
+def directory_has_files_of_type(p_book_directory, p_file_tag):
+
+    items = get_items_in_dir(p_book_directory, return_types=["files"])
+    found_tif = False
+    for item in items:
+        if item.lower().endswith(p_file_tag):
+            found_tif = True
+    return found_tif
+
 def format_path(original_path):
     '''Make sure given path ends with system folder separator'''
     return original_path if original_path.endswith(os.sep) else original_path + os.sep
