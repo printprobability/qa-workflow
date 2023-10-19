@@ -36,10 +36,17 @@ def run_autocrop(args):
         os.makedirs(output_path)
 
     # 2. Run auto_crop.py on the book with the given arguments
-    subprocess_args = ["python3", AUTOCROP_SCRIPT_LOCATION, "--path", str(args.book_directory), "--output_path", output_path]
+    subprocess_args = [
+        "python3",
+        AUTOCROP_SCRIPT_LOCATION,
+        "--path", str(args.book_directory),
+        "--output_path", output_path,
+        "--test"]
     if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
         subprocess_args.append("--threshold_by_inside")
     subprocess_args.append("*.tif")
+
+    print("Running command: {0}".format(" ".join(subprocess_args)))
     subprocess.run(subprocess_args)
 
 
@@ -100,7 +107,7 @@ def output_stats(args):
         image_name = os.path.basename(image_filepath)
 
         # I. Find second to last dash in cropped image filepath
-        original_image_name = image_name[image_name.rfind("-", 0, image_name.rfind("-")) + 1:]
+        # original_image_name = image_name[image_name.rfind("-", 0, image_name.rfind("-")) + 1:]
         csv_results[book_name][autocrop_type]["images"][image_name] = {}
 
         # II. Image area comparison
@@ -108,19 +115,19 @@ def output_stats(args):
         csv_results[book_name][autocrop_type]["images"][image_name]["image_height"] = img.size[1]
         csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]  = img.size[0] * img.size[1]
         csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = \
-            csv_results[book_name]["original"]["images"][original_image_name]["image_area"] - \
+            csv_results[book_name]["original"]["images"][image_name]["image_area"] - \
             csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]
-        csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = 100.0f * \
-            (float(csv_results[book_name]["original"]["images"][image_name]["image_area"]) / \
-             float(csv_results[book_name]["original"]["images"][original_image_name]["image_area"]))
+        csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = 100.0 * \
+            (float(csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]) / \
+             float(csv_results[book_name]["original"]["images"][image_name]["image_area"]))
 
         # III. Frobenius norm between original and autocropped images
 
         # a. Pad the autocropped image to the size of the original
         new_image = Image.new(
             img.mode,
-            (csv_results[book_name]["original"]["images"][original_image_name]["image_width"],
-            csv_results[book_name]["original"]["images"][original_image_name]["image_height"]),
+            (csv_results[book_name]["original"]["images"][image_name]["image_width"],
+            csv_results[book_name]["original"]["images"][image_name]["image_height"]),
         ) 
         new_image.paste(img, (0, 0))
 
@@ -128,7 +135,7 @@ def output_stats(args):
         autocrop_img_mtx = np.asarray(binarize_img(new_image)[0]).astype(int)
 
         # c. Calculate the Frobenius norm between the two binarized images
-        original_img_mtx = np.asarray(csv_results[book_name]["original"]["images"][original_image_name]["binarized_image"]).astype(int)
+        original_img_mtx = np.asarray(csv_results[book_name]["original"]["images"][image_name]["binarized_image"]).astype(int)
         diffed_img_mtx = np.subtract(original_img_mtx, autocrop_img_mtx)
         csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"] = np.linalg.norm(diffed_img_mtx, "fro")
 
