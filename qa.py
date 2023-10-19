@@ -30,19 +30,20 @@ VALID_COMMANDS = ["clear_output", "run_qa", "collate_results"]
 VALID_QA_TYPES = ["autocrop"]
 DEFAULT_OUTPUT_DIRECTORY = "output"
 
+
 def clear_output():
 
     if input("Are you sure you want to clear output directory {0}? (y/n)".format(qa_config["OUTPUT_DIRECTORY"])) == "y":
-        print("Output directory cleared.")
+        print("Output directory cleared.", flush=True)
     else:
-        print("Output directory not cleared.")
+        print("Output directory not cleared.", flush=True)
 
 def collate_results():
 
     for book_directory in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]):
 
         # Skip the output directory
-        if os.path.basename(qa_config["OUTPUT_DIRECTORY"]) == book_directory:
+        if Path(qa_config["OUTPUT_DIRECTORY"]).name == book_directory:
             continue
 
         if os.path.exists("{0}{1}results{1}".format(book_directory, os.sep)):
@@ -53,7 +54,7 @@ def run_qa():
     if "autocrop" == qa_config["QA_TYPE"]:
 
         if "single" == qa_config["RUN_TYPE"]:
-            slurm_job_results = qa_autocrop_on_book(os.path.basename(qa_config["BOOK_DIRECTORY"]))
+            slurm_job_results = qa_autocrop_on_book(Path(qa_config["BOOK_DIRECTORY"]).name)
         else:
             slurm_job_results = qa_autocrop_on_all_books()
 
@@ -66,18 +67,54 @@ def qa_autocrop_on_all_books():
 def qa_autocrop_on_book(p_book_name):
 
     # 1. Determine output path for slurm log files and create it if it does not exist
-    output_path = "{0}{1}_{2}{3}".format(format_path(qa_config["OUTPUT_DIRECTORY"]), p_book_name, datetime.now().timestamp(), os.sep)
+    # output_path = "{0}{1}_{2}{3}".format(format_path(qa_config["OUTPUT_DIRECTORY"]), p_book_name, datetime.now().timestamp(), os.sep)
+    output_path = format_path(qa_config["OUTPUT_DIRECTORY"])
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
     # 2. Start a process to test autocropping methods on this book
-    print("Creating slurm job for QA of cropping " + p_book_name)
-    return subprocess.Popen([
+    print("Creating slurm job for QA of cropping " + p_book_name, flush=True)
+
+    # A. Book directory will either be for a single book or a directory of books
+    book_directory = format_path(qa_config["BOOK_DIRECTORY"])
+    if "multi" == qa_config["RUN_TYPE"]:
+        book_directory += p_book_name + os.sep
+
+    with open("{0}{1}qa_autocrop.sh".format(os.getcwd(), os.sep), "r") as bash_file:
+        bash_lines = bash_file.readlines()
+        print(bash_lines, flush=True)
+
+    subprocess_args = [
+        # "sh",
         "sbatch",
-        "-o", "{0}slurm-{1}.out".format(qa_config["OUTPUT_DIRECTORY"], p_book_name),  
-        "qa_autocrop.sh",
-        format_path(qa_config["BOOK_DIRECTORY"] + p_book_name)
-    ])
+        # "-o", "{0}slurm-{1}.out".format(format_path(qa_config["OUTPUT_DIRECTORY"]), p_book_name),  
+        "{0}{1}qa_autocrop.sh".format(os.getcwd(), os.sep),
+        book_directory
+    ]
+    """
+    cmd = 'sbatch --job-name dcm2nii_{subject} --partition=short --time 00:60:00\
+        --mem-per-cpu=2G --cpus-per-task=1 -o {niidir}/{subject}_dcm2nii_output.txt\
+        -e {niidir}/{subject}_dcm2nii_error.txt\
+        --wrap="dcm2niix -o -b y {niidir} {subjectpath}"'.format(subject=subject,niidir=,subjectpath=subjectpath)
+    """
+    sbatch_args = {
+
+        "cpus_per_task": "2",
+        "mem-per-cpu": "1999mb",
+        "time": "06:00:00",
+        "partition": "RM-shared",
+        "output": "{0}slurm-{1}-{2}.out".format(qa_config["OUTPUT_DIRECTORY"], p_book_name, datetime.now().timestamp())
+    }
+    subprocess_cmd = "sbatch {0}{1}qa_autocrop.sh {2}".format(os.getcwd(), os.sep, book_directory)
+    for arg in sbatch_args:
+        subprocess_cmd += " --{0} {1}".format(arg, sbatch_args[arg])
+    
+    
+    #SBATCH -o .logs/slurm-$(basename $1)-%j.out
+    # print("Subprocess call: {0}".format(" ".join(subprocess_args)), flush=True)
+    # return subprocess.call(subprocess_args, shell=True)
+    print("Subprocess call: {0}".format(subprocess_cmd), flush=True)
+    return subprocess.call([subprocess_cmd], shell=True)
 
 # Main script
 
@@ -98,7 +135,7 @@ def handle_args():
         "--output_directory",
         help="Directory where QA output should go. Default output is ")
     parser.add_argument(
-        "--single-book",
+        "--single_book",
         action="store_true",
         help="QA the cropping of a single book. NOTE: Requires a '--book_directory' and an '--output_directory'")
 
@@ -108,7 +145,7 @@ def handle_args():
     # 3. Determine if arg requirements are met
     success = True
     if not args.qa_function:
-        print("Must specify QA function type. Current options: 'autocrop'")
+        print("Must specify QA function type. Current options: 'autocrop'", flush=True)
         success = False
     # NOTE: The current assumption is that single books are only run via arguments and not the config file
     # if not(args.single_book or args.config_file) or \
@@ -117,28 +154,28 @@ def handle_args():
     #     success = False
     elif args.single_book:
         if not (args.book_directory and args.output_directory):
-            print("Single book runs must specify the book directory.")
-            print('Example: python qa.py --single_book --book_directory "/my/example/book/dir/"')
+            print("Single book runs must specify the book directory.", flush=True)
+            print('Example: python qa.py --single_book --book_directory "/my/example/book/dir/"', flush=True)
             success = False
         if not os.path.exists(args.book_directory):
-            print("Book directory: {0} does not exist.".format(args.book_directory))
+            print("Book directory: {0} does not exist.".format(args.book_directory), flush=True)
         elif not os.path.isdir(args.book_directory):
-            print("Book directory: {0} is not a directory.".format(args.book_directory))
+            print("Book directory: {0} is not a directory.".format(args.book_directory), flush=True)
             success = False
     elif args.config_file:
         if not os.path.exists(args.config_file):
-            print("Config file: {0} does not exist.".format(args.config_file))
+            print("Config file: {0} does not exist.".format(args.config_file), flush=True)
             success = False
         elif not os.path.isfile(args.config_file):
-            print("Config file: {0} is not a file.".format(args.config_file))
+            print("Config file: {0} is not a file.".format(args.config_file), flush=True)
             success = False
     if args.output_directory:
         output_parent_directory = Path(args.output_directory).parent
         if not os.path.exists(output_parent_directory):
-            print("Output directory's parent: {0} does not exist.".format(output_parent_directory))
+            print("Output directory's parent: {0} does not exist.".format(output_parent_directory), flush=True)
             success = False
         elif not os.path.isdir(output_parent_directory):
-            print("Output directory's parent: {0} is not a directory.".format(output_parent_directory))
+            print("Output directory's parent: {0} is not a directory.".format(output_parent_directory), flush=True)
             success = False
 
     return args, success
@@ -159,18 +196,13 @@ def save_config(p_args):
     # 3. Save mandatory config values
     if p_args.single_book:
 
+        qa_config["QA_TYPE"] = p_args.qa_function
         qa_config["RUN_TYPE"] = "single"
         qa_config["BOOK_DIRECTORY"] = p_args.book_directory
-        qa_config["QA_TYPE"] = p_args.qa_function
 
         # A. Check for TIF images in the book directory
-        items = get_items_in_dir(qa_config["BOOK_DIRECTORY"], return_types=["files"])
-        found_tif = False
-        for item in items:
-            if item.lowercase().endswith(".tif"):
-                found_tif = True
-        if not found_tif:
-            print("Could not find any tif images in the book directory: {0}.".format(qa_config["BOOK_DIRECTORY"]))
+        if not directory_has_files_of_type(qa_config["BOOK_DIRECTORY"], ".tif"):
+            print("Could not find any tif images in the book directory: {0}.".format(qa_config["BOOK_DIRECTORY"]), flush=True)
             success = False
     else:
 
@@ -186,33 +218,40 @@ def save_config(p_args):
             qa_config["COMMANDS"] = config_yaml["COMMANDS"]
         if "OUTPUT_DIRECTORY" in config_yaml:
             qa_config["OUTPUT_DIRECTORY"] = config_yaml["OUTPUT_DIRECTORY"]
+        # NOTE: RUN_TYPE can also be 'single' here to indicate a single book run that is using a config file
+        if "RUN_TYPE" in config_yaml:
+            qa_config["RUN_TYPE"] = config_yaml["RUN_TYPE"]
 
         # B. Check contents of config file
         if not all(cmd in config_yaml.keys() for cmd in config_required_fields):
-            print("Config files require at least the 'BOOK_DIRECTORY' key.")
+            print("Config files require at least the 'BOOK_DIRECTORY' key.", flush=True)
             success = False
         for cmd in qa_config["COMMANDS"]:
             if cmd not in VALID_COMMANDS:
-                print("{0} is an invalid command. Valid commands: {1}".format(cmd, VALID_COMMANDS))
+                print("{0} is an invalid command. Valid commands: {1}".format(cmd, VALID_COMMANDS), flush=True)
                 success = False
         if qa_config["QA_TYPE"] not in VALID_QA_TYPES:
-            print("{0} is an invalid qa type. Valid qa types: {1}".format(qa_config["QA_TYPE"], VALID_QA_TYPES))
+            print("{0} is an invalid qa type. Valid qa types: {1}".format(qa_config["QA_TYPE"], VALID_QA_TYPES), flush=True)
             success = False
             
     # 4. Check config elements common to both single and multi-book runs
     if not os.path.exists(qa_config["BOOK_DIRECTORY"]):
-        print("Book directory: {0} does not exist.".format(qa_config["BOOK_DIRECTORY"]))
+        print("Book directory: {0} does not exist.".format(qa_config["BOOK_DIRECTORY"]), flush=True)
         success = False
     elif not os.path.isdir(qa_config["BOOK_DIRECTORY"]):
-        print("Book directory: {0} is not a directory.".format(qa_config["BOOK_DIRECTORY"]))
+        print("Book directory: {0} is not a directory.".format(qa_config["BOOK_DIRECTORY"]), flush=True)
         success = False
     output_parent_directory = Path(qa_config["OUTPUT_DIRECTORY"]).parent
     if not os.path.exists(output_parent_directory):
-        print("Output directory's parent: {0} does not exist.".format(output_parent_directory))
+        print("Output directory's parent: {0} does not exist.".format(output_parent_directory), flush=True)
         success = False
     elif not os.path.isdir(output_parent_directory):
-        print("Output directory: {0} is not a directory.".format(output_parent_directory))
-        success = False            
+        print("Output directory: {0} is not a directory.".format(output_parent_directory), flush=True)
+        success = False
+
+    print("QA CONFIG")
+    for key in qa_config:
+        print("{0}: {1}".format(key, qa_config[key]), flush=True)           
 
     return success
 
