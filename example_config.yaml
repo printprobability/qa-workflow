@@ -2,3 +2,5 @@
 BOOK_DIRECTORY: "/my/books/source/folder/"
 OUTPUT_DIRECTORY: "/my/output/folder/for/cropped_images/and/qa_run_metadata/"
 COMMANDS: ["clear_output", "run_qa", "collate_results"]
+RUN_TYPE: "multi"
+
