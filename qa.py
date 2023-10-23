@@ -40,14 +40,19 @@ def clear_output():
 
 def collate_results():
 
-    for book_directory in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]):
+    if "single" == qa_config["RUN_TYPE"]:
+        collate_results_on_book(qa_config["BOOK_DIRECTORY"] + "results" + os.sep)
+    else:
+        for book_directory in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]):
 
-        # Skip the output directory
-        # if Path(qa_config["OUTPUT_DIRECTORY"]).name == book_directory:
-        #     continue
+            full_bookpath = format_path(qa_config["BOOK_DIRECTORY"] + book_directory)
 
-        if os.path.exists("{0}{1}results".format(qa_config["BOOK_DIRECTORY"], book_name)):
-            pass
+            # Skip the QA log output directory if it exists in the book directory
+            if Path(qa_config["OUTPUT_DIRECTORY"]).name == Path(full_bookpath):
+                continue
+            
+            # Write out a merged results file for this book in its results directory
+            collate_results_on_book(full_bookpath + "results" + os.sep)
 
 def collate_results_on_book(p_results_directory):
 
