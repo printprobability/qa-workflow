@@ -33,16 +33,51 @@ DEFAULT_OUTPUT_DIRECTORY = "{0}{1}output{1}".format(os.getcwd(), os.sep)
 
 def clear_output():
 
-    if input("Are you sure you want to clear output directory {0}? (y/n)".format(qa_config["OUTPUT_DIRECTORY"])) == "y":
-        print("Output directory cleared.", flush=True)
+    if "multi" == qa_config["RUN_TYPE"]:
+        for book_directory in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]):
+            full_bookpath = format_path(qa_config["BOOK_DIRECTORY"] + book_directory)
+            if os.path.exists(full_bookpath + "results"):
+                os.unlink(full_bookpath + "results")
     else:
-        print("Output directory not cleared.", flush=True)
+        os.unlink(qa_config["BOOK_DIRECTORY"] + "results")
+                
+    # if input("Are you sure you want to clear output directory {0}? (y/n)".format(qa_config["OUTPUT_DIRECTORY"])) == "y":
+    #     print("Output directory cleared.", flush=True)
+    # else:
+    #     print("Output directory not cleared.", flush=True)
+
+def collate_all_book_results():
+
+    with open(qa_config["OUTPUT_DIRECTORY"] + "all_results_merged_{0}.csv".format(datetime.now().timestamp()), "w") as output_file:
+        
+        # 1. Read in collated results for each book and write them to the merged file
+        header_written = False
+        for book_directory in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]):
+
+            # A. Get the latest collated csv file
+            results_directory = format_path(qa_config["BOOK_DIRECTORY"] + book_directory + os.sep + "results")
+            csv_filepaths = []
+            for filepath in glob.glob(results_directory + "merged_*.csv"):
+                csv_filepaths.append((filepath, os.path.getctime(filepath)))
+            if 0 == len(csv_filepaths):
+                print("No collated csv file found for {0}.".format(book_directory))
+                continue
+            sorted_csv_filepaths = sorted(csv_filepaths, key=lambda filepath: filepath[1], reverse=True)
+            latest_merged_filepath = sorted_csv_filepaths[0][0]
+
+            # B. Save the csv file contents to the merged file
+            with open(latest_merged_filepath, "r") as input_file:
+                
+                # Add the lines from this collated csv file (skipping the header if already written) to the all results csv file
+                output_file.writelines(input_file.readlines()[1:] if header_written else input_file.readlines())
+                header_written = True
 
 def collate_results():
 
     if "single" == qa_config["RUN_TYPE"]:
         collate_results_on_book(qa_config["BOOK_DIRECTORY"] + "results" + os.sep)
     else:
+        # 1. Created merged autocrop results for each book in the book directory
         for book_directory in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]):
 
             full_bookpath = format_path(qa_config["BOOK_DIRECTORY"] + book_directory)
@@ -52,7 +87,15 @@ def collate_results():
                 continue
             
             # Write out a merged results file for this book in its results directory
-            collate_results_on_book(full_bookpath + "results" + os.sep)
+            try:
+                collate_results_on_book(full_bookpath + "results" + os.sep)
+            except:
+                print("Collation of results for book {0} has failed.".format(book_directory))
+
+        # 2. Create one CSV file for all books in qa output directory
+        print("Merging all collated autocrop results")
+        collate_all_book_results()
+
 
 def collate_results_on_book(p_results_directory):
 
@@ -88,6 +131,7 @@ def collate_results_on_book(p_results_directory):
             merged_results = results1_rows.copy() + [row for row in results2_rows if "original" != row["autocrop_type"]] 
 
     # 3. Write results into one csv file in the results directory
+    print("Writing merged results for results dir: {0}".format(p_results_directory))
     with open(p_results_directory + "merged_results_{0}.csv".format(datetime.now().timestamp()), "w") as output_file:
         csv_writer = csv.writer(output_file)
 
