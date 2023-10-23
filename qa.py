@@ -56,13 +56,13 @@ def collate_results():
 
 def collate_results_on_book(p_results_directory):
 
-    # 1. Get two most recent csv files in the results directory
+    # 1. Get two most recent csv files for autocropping in the results directory (ignoring other collation csvs)
     csv_filepaths = [(filepath, os.path.getctime(filepath)) \
-        for filepath in glob.glob(p_results_directory + "*.csv")]
+        for filepath in glob.glob(p_results_directory + "*.csv") if "merged_" not in filepath]
     if len(csv_filepaths) < 2:
         raise Exception("Less than two csv files in the results directory: {0}".format(p_results_directory))
     sorted_csv_filepaths = sorted(csv_filepaths, key=lambda filepath: filepath[1], reverse=True)
-    results_filepath1, results_filepath2 = sorted_csv_filepaths[0],sorted_csv_filepaths[1]
+    results_filepath1, results_filepath2 = sorted_csv_filepaths[0][0],sorted_csv_filepaths[1][0]
 
     # 2. Merge results file rows
     with open(results_filepath1, "r") as results_file1:
