@@ -149,17 +149,32 @@ def output_stats(args):
 
             csv_writer = csv.writer(output_file)
 
-            csv_writer.writerow(["book_name", "total_page_count", "autocrop_type", "image_name", "image_area", "area_diff_from_original", "frobenius_norm_from_original"])
+            csv_writer.writerow([
+                "book_name",
+                "total_page_count",
+                "autocrop_type",
+                "image_name",
+                "image_width",
+                "image_height",
+                "image_area",
+                "area_diff_from_original",
+                "percent_area_diff_from_original",
+                "frobenius_norm_from_original"
+            ])
 
             for autocrop_type in csv_results[book_name]:
 
                 for image_name in csv_results[book_name][autocrop_type]["images"]:
 
-                    csv_writer.writerow([book_name, csv_results[book_name][autocrop_type]["file_count"], autocrop_type, image_name,
+                    csv_writer.writerow([book_name,
+                                         csv_results[book_name][autocrop_type]["file_count"],
+                                         autocrop_type,
+                                         image_name,
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_width"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_height"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_area"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"],
+                                         csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"]])
 
 def parse_args():
