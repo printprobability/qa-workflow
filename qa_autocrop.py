@@ -1,13 +1,21 @@
-"""
-Tests the autocropper on the test set of books created by create_autocrop_test_dir.py.
-"""
+# Author:
+# Created:
+# Purpose: Tests the autocropper on the test set of books created by create_autocrop_test_dir.py.
+
+# Imports
+
+# Built-ins
 import csv
-import numpy as np
 import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
+# Third party
+import numpy as np
 from PIL import Image
+
+# Custom
 from prepare_alignment_input_csv import *
 from qa_utilities import *
 
@@ -15,40 +23,12 @@ from qa_utilities import *
 # Globals
 
 # Constants
-
+AUTOCROP_SCRIPT_LOCATION = "..{0}auto_crop.py".format(os.sep)
 CROPTYPE_THRESHOLD_BY_INSIDE = "threshold_by_inside"
 CROPTYPE_NON_THRESHOLD_BY_INSIDE = "non_threshold_by_inside"
 
-AUTOCROP_SCRIPT_LOCATION = "..{0}auto_crop.py".format(os.sep)
-
 
 # Main script functions
-
-def run_autocrop(args):
-
-    """ Call auto_crop.py for the given book """
-    
-    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
-            
-    # 1. Determine output path for cropped images and create it if it does not exist
-    output_path = "{0}results{1}{2}{1}".format(format_path(str(args.book_directory)), os.sep, autocrop_type)
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
-
-    # 2. Run auto_crop.py on the book with the given arguments
-    subprocess_args = [
-        "python3",
-        AUTOCROP_SCRIPT_LOCATION,
-        "--path", str(args.book_directory),
-        "--output_path", output_path,
-        "--test"]
-    if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
-        subprocess_args.append("--threshold_by_inside")
-    subprocess_args.append("*.tif")
-
-    print("Running command: {0}".format(" ".join(subprocess_args)))
-    subprocess.run(subprocess_args)
-
 
 def output_stats(args):
 
@@ -93,6 +73,11 @@ def output_stats(args):
     autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
 
     autocrop_type_subfolder = results_folder + autocrop_type
+    # Check to make sure that the cropping run produced a directory of images
+    if not os.path.exists(autocrop_type_subfolder):
+        print("Cropping for {0} using method '{1}' did not produce any images.".format(book_name, autocrop_type))
+        print("No stats csv file for this cropping run will be output.")
+        return
 
     csv_results[book_name][autocrop_type] = {}
 
@@ -188,6 +173,31 @@ def parse_args():
     args = parser.parse_args()
 
     return args
+
+def run_autocrop(args):
+
+    """ Call auto_crop.py for the given book """
+    
+    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
+            
+    # 1. Determine output path for cropped images and create it if it does not exist
+    output_path = "{0}results{1}{2}{1}".format(format_path(str(args.book_directory)), os.sep, autocrop_type)
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    # 2. Run auto_crop.py on the book with the given arguments
+    subprocess_args = [
+        "python3",
+        AUTOCROP_SCRIPT_LOCATION,
+        "--path", str(args.book_directory),
+        "--output_path", output_path,
+        "--test"]
+    if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
+        subprocess_args.append("--threshold_by_inside")
+    subprocess_args.append("*.tif")
+
+    print("Running command: {0}".format(" ".join(subprocess_args)))
+    subprocess.run(subprocess_args)
 
 
 if __name__ == "__main__":
