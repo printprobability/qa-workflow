@@ -40,11 +40,6 @@ def clear_output():
                 os.unlink(full_bookpath + "results")
     else:
         os.unlink(qa_config["BOOK_DIRECTORY"] + "results")
-                
-    # if input("Are you sure you want to clear output directory {0}? (y/n)".format(qa_config["OUTPUT_DIRECTORY"])) == "y":
-    #     print("Output directory cleared.", flush=True)
-    # else:
-    #     print("Output directory not cleared.", flush=True)
 
 def collate_all_book_results():
 
@@ -187,14 +182,19 @@ def qa_autocrop_on_book(p_book_directory):
     book_name = Path(p_book_directory).name
     print("Creating slurm job for QA of cropping " + book_name, flush=True)
 
-    # A. Build subprocess arguments for sbatch call
+    # A. Create the log output subdirectory if it does not exist
+    full_log_output_path = qa_config["OUTPUT_DIRECTORY"] + book_name
+    if not os.path.exists(full_log_output_path):
+        os.makedirs(full_log_output_path)
+
+    # B. Build subprocess arguments for sbatch call
     sbatch_args = {
 
         "-c": "2",
         # "-J": "{0}-{1}".format(book_name, datetime.now().timestamp()),
         "--mem-per-cpu": "1999mb",
         "-t": "06:00:00",
-        "-o": "{0}slurm-{1}-{2}.out".format(qa_config["OUTPUT_DIRECTORY"], book_name, datetime.now().timestamp()),
+        "-o": "{0}slurm-{1}-{2}.out".format(full_log_output_path, book_name, datetime.now().timestamp()),
         "-p": "RM-shared"
     }
     subprocess_cmd = "sbatch"
@@ -202,7 +202,6 @@ def qa_autocrop_on_book(p_book_directory):
         subprocess_cmd += " {0} {1}".format(arg, sbatch_args[arg])
     subprocess_cmd += " {0}{1}qa_autocrop.sh {2}".format(os.getcwd(), os.sep, p_book_directory)
 
-    # subprocess_cmd = "sbatch {0}{1}qa_autocrop.sh".format(os.getcwd(), os.sep)
     print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd), flush=True)
 
     return [subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True)]
