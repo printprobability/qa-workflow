@@ -12,6 +12,7 @@ import csv
 import glob
 import os
 import yaml
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -37,9 +38,10 @@ def clear_output():
         for book_directory in get_items_in_dir(format_path(qa_config["BOOK_DIRECTORY"]), ["directories"]):
             full_bookpath = format_path(qa_config["BOOK_DIRECTORY"] + book_directory)
             if os.path.exists(full_bookpath + "results"):
-                os.unlink(full_bookpath + "results")
+                shutil.rmtree(full_bookpath + "results")
     else:
-        os.unlink(qa_config["BOOK_DIRECTORY"] + "results")
+        if os.path.exists(qa_config["BOOK_DIRECTORY"] + "results"):
+            shutil.rmtree(qa_config["BOOK_DIRECTORY"] + "results")
 
 def collate_all_book_results():
 
@@ -90,7 +92,6 @@ def collate_results():
         # 2. Create one CSV file for all books in qa output directory
         print("Merging all collated autocrop results")
         collate_all_book_results()
-
 
 def collate_results_on_book(p_results_directory):
 
