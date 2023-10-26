@@ -6,6 +6,7 @@
 
 # Built-ins
 import glob
+import importlib
 import os
 import uuid
 
@@ -14,17 +15,23 @@ import uuid
 
 class QA_Workflow:
 
-    def __init__(self):
+    def __init__(self, p_config):
         pass
 
-    def run(self):
+    def archive_old_logs(self):
+        pass
+
+    def clear_old_results(self):
+        pass
+
+    def collate_logs(self):
         pass
 
     def collate_results(self):
-        pass
+        pass    
 
-    def clear_results(self):
-        pass
+    def run(self):
+        pass    
 
 # Functions
 
@@ -36,22 +43,6 @@ def directory_has_files_of_type(p_book_directory, p_file_tag):
         if item.lower().endswith(p_file_tag):
             found_tif = True
     return found_tif
-
-def get_unique_uuid(p_search_directory, p_search_string):
-
-    # 1. Get a random UUID
-    new_uuid = uuid.uuid4()
-
-    # 2. Make sure no file in the search directory matching the given search string has this UUID
-    filepaths = glob.glob(p_search_directory + p_search_string)
-    for index in range(len(filepaths)):
-
-        # A. Get a new UUID if the current one is detected in a filename
-        if new_uuid in os.path.basename(filepaths[index]):
-            new_uuid = uuid.uuid4()
-            index = 0
-
-    return new_uuid
 
 def format_path(original_path):
     '''Make sure given path ends with system folder separator'''
@@ -73,3 +64,35 @@ def get_items_in_dir(path, return_types=[]):
                 returned_contents.append(dI)
 
     return returned_contents
+
+def get_unique_uuid(p_search_directory, p_search_string):
+
+    # 1. Get a random UUID
+    new_uuid = uuid.uuid4()
+
+    # 2. Make sure no file in the search directory matching the given search string has this UUID
+    filepaths = glob.glob(p_search_directory + p_search_string)
+    for index in range(len(filepaths)):
+
+        # A. Get a new UUID if the current one is detected in a filename
+        if new_uuid in os.path.basename(filepaths[index]):
+            new_uuid = uuid.uuid4()
+            index = 0
+
+    return new_uuid
+
+def str_to_class(module_name, class_name):
+
+    """Return a class instance from a string reference"""
+    # Taken from https://stackoverflow.com/a/24674853/3831152
+
+    try:
+        module_ = importlib.import_module(module_name)
+        try:
+            class_ = getattr(module_, class_name)()
+        except AttributeError:
+            print("Class {0} does not exist".format(class_name))
+    except ImportError:
+            print("Module {0} does not exist".format(module_name))
+            
+    return class_ or None
