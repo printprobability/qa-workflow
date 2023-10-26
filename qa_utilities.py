@@ -5,7 +5,9 @@
 # Imports
 
 # Built-ins
+import glob
 import os
+import uuid
 
 
 # Classes
@@ -34,6 +36,22 @@ def directory_has_files_of_type(p_book_directory, p_file_tag):
         if item.lower().endswith(p_file_tag):
             found_tif = True
     return found_tif
+
+def get_unique_uuid(p_search_directory, p_search_string):
+
+    # 1. Get a random UUID
+    new_uuid = uuid.uuid4()
+
+    # 2. Make sure no file in the search directory matching the given search string has this UUID
+    filepaths = glob.glob(p_search_directory + p_search_string)
+    for index in range(len(filepaths)):
+
+        # A. Get a new UUID if the current one is detected in a filename
+        if new_uuid in os.path.basename(filepaths[index]):
+            new_uuid = uuid.uuid4()
+            index = 0
+
+    return new_uuid
 
 def format_path(original_path):
     '''Make sure given path ends with system folder separator'''
