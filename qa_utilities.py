@@ -13,25 +13,39 @@ import uuid
 
 # Classes
 
-class QA_Workflow:
+# QA module base class
+class QA_Module:
 
     def __init__(self, p_config):
         pass
 
-    def archive_old_logs(self):
+    def archive(self):
+        self.archive_logs()
+        self.archive_results()
+
+    def archive_logs(self):
+        pass    
+    def archive_results(self):
         pass
 
-    def clear_old_results(self):
+    def clear(self):
+        self.clear_logs()
+        self.clear_results()
+    def clear_logs(self):
+        pass
+    def clear_results(self):
         pass
 
+    def collate(self):
+        self.collate_logs()
+        self.collate_results()
     def collate_logs(self):
         pass
-
     def collate_results(self):
         pass    
 
     def run(self):
-        pass    
+        pass  
 
 # Functions
 
