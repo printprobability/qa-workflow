@@ -31,6 +31,11 @@ CROPTYPE_THRESHOLD_BY_INSIDE = "threshold_by_inside"
 CROPTYPE_NON_THRESHOLD_BY_INSIDE = "non_threshold_by_inside"
 
 # sbatch parameters
+SBATCH_MEMORY_PER_CPU = "1999mb"
+SBATCH_NUMBER_CPUS = "2"
+SBATCH_PARTITION = "RM-shared"
+SBATCH_TIME = "06:00:00"
+
 
 # Classes
 
@@ -215,11 +220,11 @@ class QA_Autocrop(QA_Module):
         # A. Build subprocess arguments for sbatch call
         sbatch_args = {
 
-            "-c": "2",
-            "--mem-per-cpu": "1999mb",
-            "-t": "06:00:00",
+            "-c": SBATCH_NUMBER_CPUS,
+            "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
+            "-t": SBATCH_TIME,
             "-o": "{0}slurm-{1}-{2}.out".format(self.config[OUTPUT_DIRECTORY], book_name, datetime.now().timestamp()),
-            "-p": "RM-shared"
+            "-p": SBATCH_PARTITION
         }
         subprocess_cmd = "sbatch"
         for arg in sbatch_args:
@@ -270,6 +275,7 @@ def output_stats(args):
         csv_results[book_name]["original"]["images"][image_name]["area_diff_from_original"] = 0
         csv_results[book_name]["original"]["images"][image_name]["percent_area_diff_from_original"] = 0
         csv_results[book_name]["original"]["images"][image_name]["frobenius_norm_from_original"] = 0
+        csv_results[book_name]["original"]["images"][image_name]["min_pct_dimension_difference"] = 0
 
     # 2. Comparisons between originals and autocrop run
     # for autocrop_type in autocrop_types:
@@ -301,6 +307,16 @@ def output_stats(args):
         # II. Image area comparison
         csv_results[book_name][autocrop_type]["images"][image_name]["image_width"] = img.size[0]
         csv_results[book_name][autocrop_type]["images"][image_name]["image_height"] = img.size[1]
+
+        # min( (width - width_original) / width_original, (height - height_original) / height_original) )
+        autocropped_width = csv_results[book_name][autocrop_type]["images"][image_name]["image_width"]
+        autocropped_height = csv_results[book_name][autocrop_type]["images"][image_name]["image_height"]
+        original_width = csv_results[book_name]["original"]["images"][image_name]["image_width"]
+        original_height = csv_results[book_name]["original"]["images"][image_name]["image_height"]
+        csv_results[book_name]["original"]["images"][image_name]["min_pct_dimension_difference"] = \
+            min((autocropped_width - original_width) / original_width,
+                (autocropped_height - original_height) / original_height)
+
         csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]  = img.size[0] * img.size[1]
         csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = \
             csv_results[book_name]["original"]["images"][image_name]["image_area"] - \
@@ -308,7 +324,7 @@ def output_stats(args):
         csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = 100.0 * \
             (float(csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]) / \
              float(csv_results[book_name]["original"]["images"][image_name]["image_area"]))
-
+        
         # III. Frobenius norm between original and autocropped images
 
         # a. Pad the autocropped image to the size of the original
@@ -344,6 +360,7 @@ def output_stats(args):
                 "image_name",
                 "image_width",
                 "image_height",
+                "min_pct_dimension_difference",
                 "image_area",
                 "area_diff_from_original",
                 "percent_area_diff_from_original",
@@ -360,6 +377,7 @@ def output_stats(args):
                                          image_name,
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_width"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_height"],
+                                         csv_results[book_name][autocrop_type]["images"][image_name]["min_pct_dimension_difference"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["image_area"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"],
                                          csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"],
