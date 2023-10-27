@@ -10,7 +10,6 @@ import glob
 import os
 import shutil
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
 # Third party
@@ -29,6 +28,7 @@ from qa_utilities import *
 AUTOCROP_SCRIPT_LOCATION = "..{0}auto_crop.py".format(os.sep)
 CROPTYPE_THRESHOLD_BY_INSIDE = "threshold_by_inside"
 CROPTYPE_NON_THRESHOLD_BY_INSIDE = "non_threshold_by_inside"
+STATS_FILE_PREFIX = "autocrop_results"
 
 # sbatch parameters
 SBATCH_MEMORY_PER_CPU = "1999mb"
@@ -102,7 +102,7 @@ class QA_Autocrop(QA_Module):
 
     def __collate_all_book_results(self):
 
-        with open(self.config[OUTPUT_DIRECTORY] + "{0}_{1}.csv".format(MERGED_RESULTS_FILENAME_PREFIX, datetime.now().timestamp()), "w") as output_file:
+        with open(self.config[OUTPUT_DIRECTORY] + "{0}_{1}.csv".format(MERGED_RESULTS_FILENAME_PREFIX, self.config[RUN_UUID]), "w") as output_file:
             
             # 1. Read in collated results for each book and write them to the merged file
             header_written = False
@@ -161,7 +161,7 @@ class QA_Autocrop(QA_Module):
 
         # 3. Write results into one csv file in the results directory
         print("Writing merged results for results dir: {0}".format(p_results_directory))
-        with open(p_results_directory + "merged_results_{0}.csv".format(datetime.now().timestamp()), "w") as output_file:
+        with open(p_results_directory + "merged_results_{0}.csv".format(self.config[RUN_UUID]), "w") as output_file:
             csv_writer = csv.writer(output_file)
 
             csv_writer.writerow([
@@ -223,13 +223,13 @@ class QA_Autocrop(QA_Module):
             "-c": SBATCH_NUMBER_CPUS,
             "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
             "-t": SBATCH_TIME,
-            "-o": "{0}slurm-{1}-{2}.out".format(self.config[OUTPUT_DIRECTORY], book_name, datetime.now().timestamp()),
+            "-o": "{0}slurm-{1}-{2}.out".format(self.config[OUTPUT_DIRECTORY], book_name, self.config[RUN_UUID]),
             "-p": SBATCH_PARTITION
         }
         subprocess_cmd = "sbatch"
         for arg in sbatch_args:
             subprocess_cmd += " {0} {1}".format(arg, sbatch_args[arg])
-        subprocess_cmd += " {0}{1}qa_autocrop.sh {2}".format(os.getcwd(), os.sep, p_book_directory)
+        subprocess_cmd += " {0}{1}qa_autocrop.sh {2} {3}".format(os.getcwd(), os.sep, p_book_directory, self.config[RUN_UUID])
 
         print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd), flush=True)
 
@@ -347,7 +347,7 @@ def output_stats(args):
     for book_name in csv_results:
 
         results_folder = "{0}results{1}".format(output_folder, os.sep)
-        stats_filepath = results_folder + "autocrop_results_{0}.csv".format(datetime.now().timestamp())
+        stats_filepath = results_folder + "{0}_{1}.csv".format(STATS_FILE_PREFIX, self.config[RUN_UUID])
 
         with open(stats_filepath, "w") as output_file:
 
@@ -389,6 +389,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("book_directory", help="Directory containing the images of one book copied using the create_autocrop_test_dir.py script")
+    parser.add_argument("run_uuid", help="Unique ID for this autocrop run/batch of autocrop runs")
     parser.add_argument("--threshold_by_inside", help="Computes binary threshold off inner chunk of page.", action="store_true")
 
     args = parser.parse_args()
@@ -406,12 +407,17 @@ def run_autocrop(args):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
+    # 2. Path for error output will be in the top level results directory
+    error_path = "{0}results{1}".format(format_path(str(args.book_directory)), os.sep)
+
     # 2. Run auto_crop.py on the book with the given arguments
     subprocess_args = [
         "python3",
         AUTOCROP_SCRIPT_LOCATION,
         "--path", str(args.book_directory),
         "--output_path", output_path,
+        "--error_path", error_path,
+        "--run_uuid", args.run_uuid,
         "--test"]
     if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
         subprocess_args.append("--threshold_by_inside")

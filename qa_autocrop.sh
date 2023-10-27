@@ -15,13 +15,13 @@ conda activate "/ocean/projects/hum160002p/gsell/.conda/envs/my_env"
 echo "In qa_autocrop.sh"
 
 # 2. Run the QA script
-if [ -z "$1" ]
+if [ -z "$1" ] || [ -z "$2" ]
 then
-  echo "qa_autocrop.sh must be supplied with a book directory."
+  echo "qa_autocrop.sh must be supplied with a book directory and unique run ID."
 else
   echo "QAing autocrop for $(basename $1)..."
-  python3 qa_autocrop.py $1
-  python3 qa_autocrop.py $1 --threshold_by_inside
+  python3 qa_autocrop.py $1 $2
+  python3 qa_autocrop.py $1 $2 --threshold_by_inside
 fi
 
 
