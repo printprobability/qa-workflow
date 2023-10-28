@@ -63,7 +63,7 @@ def handle_args():
     # 3. Determine if arg requirements are met
     success = True
     if not args.qa_function:
-        print("Must specify QA function type. Current options: {0}".format(", ".join(QA_TYPE_CLASSES.keys()),
+        print("Must specify QA function type. Current options: {0}".format(", ".join(QA_TYPE_CLASSES.keys())),
               flush=True)
         success = False
     elif args.single_book:
@@ -97,9 +97,8 @@ def handle_args():
 
 def run_commands():
 
-    # 0. Load up the QA class module and instantiate a copy of it
-    module_name = QA_TYPE_CLASSES[qa_config[QA_TYPE]][0]
-    class_name = QA_TYPE_CLASSES[qa_config[QA_TYPE]][1]
+    # 0. Load up the QA class module from config and instantiate a copy of it
+    module_name, class_name = QA_TYPE_CLASSES[qa_config[QA_TYPE]]
     qa_module = str_to_class(module_name, class_name)(qa_config)
 
     # 1. Run QA commands in the sequence listed in the loaded config
@@ -112,7 +111,7 @@ def save_config(p_args):
     config_required_fields = [BOOK_DIRECTORY]
 
     # 1. Save default config values
-    qa_config[COMMANDS]=[COMMANDS_RUN]
+    qa_config[COMMANDS]=[COMMAND_RUN]
     qa_config[OUTPUT_DIRECTORY] = DEFAULT_OUTPUT_DIRECTORY
 
     # 2. Save optional config values if given
