@@ -78,10 +78,10 @@ class QA_Autocrop(QA_Module):
             for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
                 full_bookpath = format_path(self.config[BOOK_DIRECTORY] + book_directory)
                 if os.path.exists(full_bookpath + RESULTS_DIRECTORY):
-                    shutil.rmtree(full_bookpath + RESULTS_DIRECTORY)
+                    shutil.rmtree(full_bookpath + RESULTS_DIRECTORY, ignore_errors=True)
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
             if os.path.exists(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY):
-                shutil.rmtree(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY)
+                shutil.rmtree(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY, ignore_errors=True)
 
     def collate_results(self):
 
