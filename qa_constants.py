@@ -2,6 +2,11 @@
 # Created: October 26, 2023
 # Purpose: Constants for the 'Print & Probability' QA workflow for book processing
 
+# Imports
+
+# Built-ins
+import os
+
 # Directories and filenames
 ARCHIVE_DIRECTORY = "archive"
 DEFAULT_OUTPUT_DIRECTORY = "{0}{1}output{1}".format(os.getcwd(), os.sep)
@@ -44,7 +49,7 @@ VALID_COMMANDS = [
 QA_TYPE_AUTOCROP = "autocrop"
 QA_TYPE_LINE_EXTRACTION = "line_extraction"
 QA_TYPE_CLASSES = {
-    QA_TYPE_AUTOCROP: ["qa_autocrop", "QA_AutoCrop"],
+    QA_TYPE_AUTOCROP: ["qa_autocrop", "QA_Autocrop"],
     QA_TYPE_LINE_EXTRACTION: ["qa_line_extraction", "QA_LineExtraction"]
 }
 VALID_QA_TYPES = [
