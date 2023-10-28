@@ -89,11 +89,11 @@ def get_unique_uuid(p_search_directory, p_search_string):
     for index in range(len(filepaths)):
 
         # A. Get a new UUID if the current one is detected in a filename
-        if new_uuid in os.path.basename(filepaths[index]):
+        if str(new_uuid) in os.path.basename(filepaths[index]):
             new_uuid = uuid.uuid4()
             index = 0
 
-    return new_uuid
+    return str(new_uuid)
 
 def str_to_class(module_name, class_name):
 
@@ -103,10 +103,11 @@ def str_to_class(module_name, class_name):
     try:
         module_ = importlib.import_module(module_name)
         try:
-            class_ = getattr(module_, class_name)()
+            # class_ = getattr(module_, class_name)()
+            class_ = getattr(module_, class_name)
         except AttributeError:
             print("Class {0} does not exist".format(class_name))
     except ImportError:
-            print("Module {0} does not exist".format(module_name))
+        print("Module {0} does not exist".format(module_name))
             
     return class_ or None
