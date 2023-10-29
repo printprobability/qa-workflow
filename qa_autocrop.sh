@@ -19,9 +19,17 @@ if [ -z "$1" ] || [ -z "$2" ]
 then
   echo "qa_autocrop.sh must be supplied with a book directory and unique run ID."
 else
-  echo "QAing autocrop for $(basename $1)..."
-  python3 qa_autocrop.py $1 $2
-  python3 qa_autocrop.py $1 $2 --threshold_by_inside
+
+  if [ -z "$3" ]
+  then
+    echo "QAing autocrop for $(basename $1) with non_threshold_by_inside..."
+  else
+    echo "QAing autocrop for $(basename $1) with threshold_by_inside..."
+  fi
+
+  python3 qa_autocrop.py $1 $2 $3
+  # python3 qa_autocrop.py $1 $2
+  # python3 qa_autocrop.py $1 $2 --threshold_by_inside
 fi
 
 
