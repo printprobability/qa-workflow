@@ -111,3 +111,25 @@ def str_to_class(module_name, class_name):
         print("Module {0} does not exist".format(module_name))
             
     return class_ or None
+
+def traceback_to_str(p_traceback):
+
+    traceback_str = ""
+    if isinstance(p_traceback, list):
+        if 1 == len(p_traceback):
+            traceback_str = p_traceback[0]
+        else:
+            traceback_str = " ".join(p_traceback)
+    elif isinstance(p_traceback, str):
+        traceback_str = p_traceback
+
+    return traceback_str
+
+def wait_while_exists(p_path):
+
+    '''For after uses of unlink or rmtree; waits until passed in item still exists on disk'''
+    # Taken from https://stackoverflow.com/questions/21505313/is-there-a-foolproof-way-to-give-the-system-enough-time-to-delete-a-folder-befor
+
+    while os.path.exists(p_path):
+        pass
+    
