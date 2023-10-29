@@ -17,6 +17,7 @@ from pathlib import Path
 # Third party
 import numpy as np
 from PIL import Image
+from PIL import UnidentifiedImageError
 
 # Custom
 from prepare_alignment_input_csv import *
@@ -30,6 +31,10 @@ from qa_utilities import *
 AUTOCROP_SCRIPT_LOCATION = "..{0}auto_crop.py".format(os.sep)
 CROPTYPE_THRESHOLD_BY_INSIDE = "threshold_by_inside"
 CROPTYPE_NON_THRESHOLD_BY_INSIDE = "non_threshold_by_inside"
+AUTOCROP_TYPES = [
+    CROPTYPE_THRESHOLD_BY_INSIDE,
+    CROPTYPE_NON_THRESHOLD_BY_INSIDE
+]
 STATS_FILE_PREFIX = "autocrop_results"
 
 # sbatch parameters
@@ -71,6 +76,8 @@ class QA_Autocrop(QA_Module):
         for filepath in log_filepaths:
             if MASTER_LOG_FILENAME_PREFIX not in filepath:
                 os.unlink(filepath)
+                wait_while_exists(filepath)
+                
 
     def clear_results(self):
 
@@ -79,9 +86,11 @@ class QA_Autocrop(QA_Module):
                 full_bookpath = format_path(self.config[BOOK_DIRECTORY] + book_directory)
                 if os.path.exists(full_bookpath + RESULTS_DIRECTORY):
                     shutil.rmtree(full_bookpath + RESULTS_DIRECTORY, ignore_errors=True)
-        if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
+                    wait_while_exists(full_bookpath + RESULTS_DIRECTORY)
+        elif RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
             if os.path.exists(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY):
                 shutil.rmtree(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY, ignore_errors=True)
+                wait_while_exists(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY)
 
     def collate_results(self):
 
@@ -183,7 +192,8 @@ class QA_Autocrop(QA_Module):
                 "image_area",
                 "area_diff_from_original",
                 "percent_area_diff_from_original",
-                "frobenius_norm_from_original"
+                "frobenius_norm_from_original",
+                "error"
             ])
 
             for row in merged_results:
@@ -198,7 +208,8 @@ class QA_Autocrop(QA_Module):
                     row["image_area"],
                     row["area_diff_from_original"],
                     row["percent_area_diff_from_original"],
-                    row["frobenius_norm_from_original"]
+                    row["frobenius_norm_from_original"],
+                    row["error"]
                 ])
 
     def run(self):
@@ -223,25 +234,33 @@ class QA_Autocrop(QA_Module):
 
         # 1. Start a process to test autocropping methods on this book
         book_name = Path(p_book_directory).name
-        print("Creating slurm job for QA of cropping " + book_name, flush=True)
 
-        # A. Build subprocess arguments for sbatch call
-        sbatch_args = {
+        slurm_results = []
+        for autocrop_type in AUTOCROP_TYPES:
+        
+            print("Creating slurm job for QA of cropping {0} with autocrop type {1}".format(book_name, autocrop_type, flush=True))
 
-            "-c": SBATCH_NUMBER_CPUS,
-            "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
-            "-t": SBATCH_TIME,
-            "-o": "{0}slurm-{1}_{2}.out".format(self.config[OUTPUT_DIRECTORY], book_name, self.config[RUN_UUID]),
-            "-p": SBATCH_PARTITION
-        }
-        subprocess_cmd = "sbatch"
-        for arg in sbatch_args:
-            subprocess_cmd += " {0} {1}".format(arg, sbatch_args[arg])
-        subprocess_cmd += " {0}{1}qa_autocrop.sh {2} {3}".format(os.getcwd(), os.sep, p_book_directory, self.config[RUN_UUID])
+            # A. Build subprocess arguments for sbatch call
+            sbatch_args = {
 
-        print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd), flush=True)
+                "-c": SBATCH_NUMBER_CPUS,
+                "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
+                "-t": SBATCH_TIME,
+                "-o": "{0}slurm-{1}_{2}_{3}.out".format(self.config[OUTPUT_DIRECTORY], book_name, autocrop_type, self.config[RUN_UUID]),
+                "-p": SBATCH_PARTITION
+            }
+            subprocess_cmd = "sbatch"
+            for arg in sbatch_args:
+                subprocess_cmd += " {0} {1}".format(arg, sbatch_args[arg])
+            subprocess_cmd += " {0}{1}qa_autocrop.sh {2} {3}".format(os.getcwd(), os.sep, p_book_directory, self.config[RUN_UUID])
+            if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
+                subprocess_cmd += " --" + autocrop_type
 
-        return [subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True)]
+            print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd), flush=True)
+
+            slurm_results.append(subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True))
+        
+        return slurm_results
 
 
 # Main script functions
@@ -257,9 +276,27 @@ def output_stats(args):
     book_name = os.path.basename(book_dir[0:len(book_dir)-1])
     csv_results[book_name] = { "original": {} }
     results_folder = "{0}results{1}".format(output_folder, os.sep)
+    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
+    autocrop_type_subfolder = results_folder + autocrop_type
+
+    # Check to make sure that the cropping run produced a directory of images
+    # if not os.path.exists(autocrop_type_subfolder):
+    #     print("Cropping for {0} using method '{1}' did not produce any images.".format(book_name, autocrop_type))
+    #     print("No stats csv file for this cropping run will be output.")
+    #     return    
 
     print("Book dir: {0}".format(book_dir))
     print("Book name: {0}".format(book_name))
+
+    # 0. Potential error file for this cropping run for this book
+    error_filepath = "{0}results{1}error_{2}_{3}_{4}.txt".format(output_folder, os.sep,
+        book_name, autocrop_type, args.run_uuid)
+    error_lookup = {}
+    if os.path.exists(error_filepath):
+        error_lookup = read_error_file(error_filepath)
+
+    print("FINISHED READING ERROR LOOKUP TABLE")
+    print("ERROR_LOOKUP:\n{0}".format(error_lookup))
 
     # 1. Determine info about the original images
 
@@ -270,7 +307,11 @@ def output_stats(args):
     # B. Gather stats on the original book images
     for image_filepath in Path(args.book_directory).glob("*.tif"):
 
-        img = Image.open(image_filepath)
+        try:
+            img = Image.open(image_filepath)
+        except UnidentifiedImageError:
+            error_lookup[Path(image_filepath).name] = str(traceback.format_exc())
+            continue
         image_name = os.path.basename(image_filepath)
         csv_results[book_name]["original"]["images"][image_name] = { "binarized_image": binarize_img(img)[0] }
 
@@ -287,25 +328,6 @@ def output_stats(args):
         csv_results[book_name]["original"]["images"][image_name]["error"] = "N/A"
 
     # 2. Comparisons between originals and autocrop run
-    # for autocrop_type in autocrop_types:
-    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
-
-    autocrop_type_subfolder = results_folder + autocrop_type
-    # Check to make sure that the cropping run produced a directory of images
-    if not os.path.exists(autocrop_type_subfolder):
-        print("Cropping for {0} using method '{1}' did not produce any images.".format(book_name, autocrop_type))
-        print("No stats csv file for this cropping run will be output.")
-        return
-
-    # Potential error file for this cropping run for this book
-    error_filepath = "{0}results{1}error_{2}_{3}_{4}.txt".format(output_folder, os.sep,
-        book_name, autocrop_type, args.run_uuid)
-    error_lookup = {}
-    if os.path.exists(error_filepath):
-        error_lookup = read_error_file(error_filepath)
-
-    print("FINISHED READING ERROR LOOKUP TABLE")
-    print("ERROR_LOOKUP:\n{0}".format(error_lookup))
 
     csv_results[book_name][autocrop_type] = {}
 
@@ -316,7 +338,12 @@ def output_stats(args):
     # B. Gather stats on autocropped images and compare to original images
     for image_filepath in Path(autocrop_type_subfolder).glob("*.tif"):
 
-        img = Image.open(image_filepath)
+        try:
+            img = Image.open(image_filepath)
+        except Exception as e:
+            print("Image opening exception for {0}".format(image_filepath))
+            error_lookup[Path(image_filepath).name] = str(traceback.format_exc())
+            continue
         image_name = os.path.basename(image_filepath)
 
         # I. Find second to last dash in cropped image filepath
@@ -362,13 +389,23 @@ def output_stats(args):
         diffed_img_mtx = np.subtract(original_img_mtx, autocrop_img_mtx)
         csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"] = np.linalg.norm(diffed_img_mtx, "fro")
 
-        # IV. Record any cropping script error for this image
-        if image_name in error_lookup:
-            csv_results[book_name][autocrop_type]["images"][image_name]["error"] = error_lookup[image_name]
-        else:
-            csv_results[book_name][autocrop_type]["images"][image_name]["error"] = "N/A"
+        # IV. All images found are likely not errored
+        csv_results[book_name][autocrop_type]["images"][image_name]["error"] = "N/A"
 
-    # 3. Output a csv file of these stats in the autocrop result folder
+    # 3. Add in errored images with their errors
+    for image_name in error_lookup:
+        print("Adding errored image {0} to csv_results with error {1}".format(image_name, error_lookup[image_name]))
+        csv_results[book_name][autocrop_type]["images"][image_name] = {}
+        csv_results[book_name][autocrop_type]["images"][image_name]["image_width"] = "N/A"
+        csv_results[book_name][autocrop_type]["images"][image_name]["image_height"] = "N/A"
+        csv_results[book_name][autocrop_type]["images"][image_name]["min_pct_dimension_difference"] = "N/A"
+        csv_results[book_name][autocrop_type]["images"][image_name]["image_area"] = "N/A"
+        csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = "N/A"
+        csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = "N/A"
+        csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"] = "N/A"
+        csv_results[book_name][autocrop_type]["images"][image_name]["error"] = traceback_to_str(error_lookup[image_name])
+
+    # 4. Output a csv file of these stats in the autocrop result folder
     for book_name in csv_results:
 
         results_folder = "{0}results{1}".format(output_folder, os.sep)
