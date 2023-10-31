@@ -39,10 +39,13 @@ class QA_Module:
     def collate(self):
         self.collate_logs()
         self.collate_results()
+        self.collate_errors()
+    def collate_errors(self):
+        pass
     def collate_logs(self):
         pass
     def collate_results(self):
-        pass    
+        pass  
 
     def run(self):
         pass  
@@ -61,6 +64,22 @@ def directory_has_files_of_type(p_book_directory, p_file_tag):
 def format_path(original_path):
     '''Make sure given path ends with system folder separator'''
     return original_path if original_path.endswith(os.sep) else original_path + os.sep
+
+def get_uniquer_error_line(p_error):
+
+    error_search_string = "Error:"
+    key_line = ""
+
+    if isinstance(p_error, list):
+        for line in p_error:
+            if error_search_string in p_error:
+                key_line = line
+                break
+    elif isinstance(p_error, str):
+        key_line = p_error
+
+    return key_line
+
 
 def get_items_in_dir(path, return_types=[]):
     '''Get all items in given path of type "directories" and/or "files"'''
@@ -114,16 +133,22 @@ def str_to_class(module_name, class_name):
 
 def traceback_to_str(p_traceback):
 
-    traceback_str = ""
-    if isinstance(p_traceback, list):
-        if 1 == len(p_traceback):
-            traceback_str = p_traceback[0]
-        else:
-            traceback_str = " ".join(p_traceback)
-    elif isinstance(p_traceback, str):
-        traceback_str = p_traceback
+    '''Makes sure given traceback from exception is in string form'''
 
-    return traceback_str
+    return " ".join(p_traceback) if isinstance(p_traceback, list) else p_traceback
+
+    # Convert traceback in list form to single string
+    # traceback_str = ""
+    # if isinstance(p_traceback, list):
+    #     if 1 == len(p_traceback):
+    #         traceback_str = p_traceback[0]
+    #     else:
+    #         traceback_str = " ".join(p_traceback)
+    # elif isinstance(p_traceback, str):
+    #     traceback_str = p_traceback
+
+    # return traceback_str
+
 
 def wait_while_exists(p_path):
 

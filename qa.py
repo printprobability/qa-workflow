@@ -25,15 +25,6 @@ qa_config = {}
 slurm_job_results = None
 
 
-# Master log creation
-
-def create_error_log():
-
-    # Look at each log in output directory that contains UUID 
-    # qa_config["OUTPUT_DIRECTORY"]
-    pass
-
-
 # Main script
 
 def handle_args():

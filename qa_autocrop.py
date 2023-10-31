@@ -1,5 +1,5 @@
-# Author:
-# Created:
+# Author: Jonathan Armoza
+# Created: October 11, 2023
 # Purpose: Tests the autocropper on the test set of books created by create_autocrop_test_dir.py.
 
 # Imports
@@ -35,6 +35,7 @@ AUTOCROP_TYPES = [
     CROPTYPE_THRESHOLD_BY_INSIDE,
     CROPTYPE_NON_THRESHOLD_BY_INSIDE
 ]
+ERRORS_FILE_PREFIX = "autocrop_errors"
 STATS_FILE_PREFIX = "autocrop_results"
 
 # sbatch parameters
@@ -77,7 +78,6 @@ class QA_Autocrop(QA_Module):
             if MASTER_LOG_FILENAME_PREFIX not in filepath:
                 os.unlink(filepath)
                 wait_while_exists(filepath)
-                
 
     def clear_results(self):
 
@@ -91,6 +91,60 @@ class QA_Autocrop(QA_Module):
             if os.path.exists(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY):
                 shutil.rmtree(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY, ignore_errors=True)
                 wait_while_exists(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY)
+
+    def collate_errors(self):
+
+        with open(self.config[OUTPUT_DIRECTORY] + "{0}_{1}.csv".format(MERGED_RESULTS_FILENAME_PREFIX, self.config[RUN_UUID]), "r") as merged_results_file:
+
+            # 1. Read in errors by individual image in merged results, ignoring N/A's and keeping track of results stats
+            errors_by_book = {}
+            csv_reader = csv.DictReader(merged_results_file)
+            result_count = error_count = 0
+            for row in csv_reader:
+
+                if "N/A" != row["error"]:
+
+                    book_name = row["book_name"]
+                    autocrop_type = row["autocrop_type"]
+                    image_name = row["image_name"]
+                    full_error = row["error"]                
+
+                    # A. Errors are keyed by the line in their traceback message that contains 'Error:' - common string for Python errors
+                    error_type = get_uniquer_error_line(row["error"])
+
+                    # B. Associate image with book and this kind of error
+                    if book_name not in errors_by_book:
+                        errors_by_book[book_name] = {}
+                
+                    if error_type not in errors_by_book[book_name]:
+                        errors_by_book[book_name][error_type] = []
+
+                    errors_by_book[book_name][error_type].append((image_name, autocrop_type, full_error))
+
+                    error_count += 1
+                
+                result_count += 1
+            
+            # 2. Output file with images sorted by book and then their error type, noting autocrop type and the full error as well
+            with open("{0}_{1}_{2}.csv".format(self.config[OUTPUT_DIRECTORY], ERRORS_FILE_PREFIX, self.config[RUN_UUID]), "w") as output_file:
+                csv_writer = csv.writer(output_file)
+                csv_writer.writerow([
+                    "book_name",
+                    "image_name",
+                    "autocrop_type",
+                    "error_type",
+                    "error"
+                ])
+                for book_name in errors_by_book:
+                    for error_type in errors_by_book[book_name]:
+                        for index in range(len(errors_by_book[book_name][error_type])):
+                            csv_writer.writerow([
+                                book_name,
+                                errors_by_book[book_name][error_type][index][0],
+                                errors_by_book[book_name][error_type][index][1],
+                                error_type,
+                                errors_by_book[book_name][error_type][index][2]
+                            ])
 
     def collate_results(self):
 
