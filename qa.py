@@ -47,6 +47,9 @@ def handle_args():
         "--single_book",
         action="store_true",
         help="QA the cropping of a single book. NOTE: Requires a '--book_directory' and an '--output_directory'")
+    parser.add_argument(
+        "--run_uuid",
+        help="Optional UUID to continue usage of it from previous QA run")
 
     # 2. Run argparser over args given for this script run
     args = parser.parse_args()
@@ -165,8 +168,13 @@ def save_config(p_args):
         print("Output directory: {0} is not a directory.".format(output_parent_directory), flush=True)
         success = False
 
-    # 5. Get a unique UUID for this run
-    qa_config[RUN_UUID] = get_unique_uuid(qa_config[OUTPUT_DIRECTORY], MERGED_RESULTS_FILENAME_PREFIX + "*")
+    # 5. Get a unique UUID for this run, of previous UUID if given as argument
+    if p_args.run_uuid:
+        qa_config[RUN_UUID] = p_args.run_uuid
+    elif RUN_UUID in config_yaml:
+        qa_config[RUN_UUID] = config_yaml[RUN_UUID]
+    else:
+        qa_config[RUN_UUID] = get_unique_uuid(qa_config[OUTPUT_DIRECTORY], MERGED_RESULTS_FILENAME_PREFIX + "*")
 
     return success
 
