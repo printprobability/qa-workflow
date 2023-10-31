@@ -69,17 +69,26 @@ def get_uniquer_error_line(p_error):
 
     error_search_string = "Error:"
     key_line = ""
+    formatted_error = p_error
 
-    if isinstance(p_error, list):
-        for line in p_error:
-            if error_search_string in p_error:
+    # 0. Split strings with endlines into a list
+    if "\n" in formatted_error:
+        formatted_error = formatted_error.split("\n")
+
+    # 1. Find the error line
+    if isinstance(formatted_error, list):
+        for line in formatted_error:
+            if error_search_string in line:
                 key_line = line
                 break
-    elif isinstance(p_error, str):
-        key_line = p_error
+    elif isinstance(formatted_error, str):
+        key_line = formatted_error
 
-    return key_line
+    # 2. Remove paths in the error line
+    if os.sep in key_line:
+        key_line = key_line[0:key_line.find(os.sep)]
 
+    return key_line.strip()
 
 def get_items_in_dir(path, return_types=[]):
     '''Get all items in given path of type "directories" and/or "files"'''
@@ -134,21 +143,7 @@ def str_to_class(module_name, class_name):
 def traceback_to_str(p_traceback):
 
     '''Makes sure given traceback from exception is in string form'''
-
     return " ".join(p_traceback) if isinstance(p_traceback, list) else p_traceback
-
-    # Convert traceback in list form to single string
-    # traceback_str = ""
-    # if isinstance(p_traceback, list):
-    #     if 1 == len(p_traceback):
-    #         traceback_str = p_traceback[0]
-    #     else:
-    #         traceback_str = " ".join(p_traceback)
-    # elif isinstance(p_traceback, str):
-    #     traceback_str = p_traceback
-
-    # return traceback_str
-
 
 def wait_while_exists(p_path):
 

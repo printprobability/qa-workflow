@@ -102,7 +102,7 @@ class QA_Autocrop(QA_Module):
             result_count = error_count = 0
             for row in csv_reader:
 
-                if "N/A" != row["error"]:
+                if "'N/A'" != row["error"]:
 
                     book_name = row["book_name"]
                     autocrop_type = row["autocrop_type"]
@@ -126,7 +126,7 @@ class QA_Autocrop(QA_Module):
                 result_count += 1
             
             # 2. Output file with images sorted by book and then their error type, noting autocrop type and the full error as well
-            with open("{0}_{1}_{2}.csv".format(self.config[OUTPUT_DIRECTORY], ERRORS_FILE_PREFIX, self.config[RUN_UUID]), "w") as output_file:
+            with open("{0}{1}_{2}.csv".format(self.config[OUTPUT_DIRECTORY], ERRORS_FILE_PREFIX, self.config[RUN_UUID]), "w") as output_file:
                 csv_writer = csv.writer(output_file)
                 csv_writer.writerow([
                     "book_name",
