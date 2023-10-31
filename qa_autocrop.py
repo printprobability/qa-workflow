@@ -75,7 +75,8 @@ class QA_Autocrop(QA_Module):
         # Clear all log files in the log folder
         log_filepaths = glob.glob(self.config[OUTPUT_DIRECTORY] + "*.out")
         for filepath in log_filepaths:
-            if MASTER_LOG_FILENAME_PREFIX not in filepath:
+            if MASTER_LOG_FILENAME_PREFIX not in filepath and \
+               ".gitignore" not in filepath:
                 os.unlink(filepath)
                 wait_while_exists(filepath)
 
