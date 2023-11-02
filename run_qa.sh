@@ -5,4 +5,9 @@
 #SBATCH -p RM-shared
 #SBATCH -o ./logs/qa_autocrop_slurm-%j.out
 
-python3 qa.py autocrop --config_file qa.yaml
+if [ -z "$1" ] || [ -z "$2" ]
+then
+    exit "run_qa.sh must be supplied with a qa module name and a config file."
+fi
+
+python3 qa.py $1 --config_file $2
