@@ -55,7 +55,7 @@ def show_sample_images(args):
             # show image with this nearest quantile metric value
             # print(this_df[this_df[metric] == q].image_name)
             # example img:
-            #/ocean/projects/hum160002p/shared/books/test_autocrop/anon_R11260_wellcome_4_generalhistoryair1692/results/non_threshold_by_inside
+            #/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/anon_R11260_wellcome_4_generalhistoryair1692/results/non_threshold_by_inside
             fname = this_df[this_df[metric] == q].image_name.tolist()[0]
             fpath = str(Path(args.test_autocrop_dir)/book_name/'results'/autocrop_type/fname)
             if args.debug:
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--result_csv', type=str, default='/ocean/projects/hum160002p/shared/books/code/qa_workflow/logs/all_results_merged_6bfe61cf-1f60-4b08-bd31-25bf09e301a2.csv', help='Path to merged result csv')
     parser.add_argument('--metric', type=str, default='percent_area_diff_from_original', choices=['percent_area_diff_from_original', 'min_pct_dimension_difference'], help='Metric to use for analysis')
     parser.add_argument('--quantiles', type=float, nargs='+', default=[0.25, 0.5, 0.75])
-    parser.add_argument('--test_autocrop_dir', default='/ocean/projects/hum160002p/shared/books/test_autocrop')
+    parser.add_argument('--test_autocrop_dir', default='/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop')
     parser.add_argument('--autocrop_options', type=str, nargs='+', default=['non_threshold_by_inside', 'threshold_by_inside'], help='autocrop options to compare')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
