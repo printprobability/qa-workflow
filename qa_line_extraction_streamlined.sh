@@ -35,9 +35,10 @@ date
 echo "Preparing directory $1 for line extraction QA"
 echo "Making necessary subdirectories..."
 cd $1
-mkdir book book_color pages pages_color lines lines_color
+# mkdir book book_color pages pages_color lines lines_color
+mkdir pages pages_color lines lines_color
 echo "Copying original images to subdirectories..."
-cp *.tif book_color/
+# cp *.tif book_color/
 cp *.tif pages/
 cp *.tif pages_color/
 echo "Copying scripts to subdirectories..."
