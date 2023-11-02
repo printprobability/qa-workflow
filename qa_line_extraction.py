@@ -28,21 +28,24 @@ from qa_utilities import *
 # Globals
 
 # Constants
-LINE_EXTRACTION_SCRIPT_LOCATION = "..{0}line_extract_dhsegment.sh".format(os.sep)
-# CROPTYPE_THRESHOLD_BY_INSIDE = "threshold_by_inside"
-# CROPTYPE_NON_THRESHOLD_BY_INSIDE = "non_threshold_by_inside"
-LINE_EXTRACTION_TYPES = [
-    # CROPTYPE_THRESHOLD_BY_INSIDE,
-    # CROPTYPE_NON_THRESHOLD_BY_INSIDE
+DIRECTORY_PAGES = "pages" + os.sep
+DIRECTORY_PAGES_COLOR = "pages_color" + os.sep
+DIRECTORY_LINES = "lines" + os.sep
+DIRECTORY_LINES_COLOR = "lines_color" + os.sep
+LINEEXTRACTION_SCRIPT_LOCATION_DHSEGMENT = QA_CODE_DIRECTORY + "run_dhsegment_on_book.py"
+LINEEXTRACTION_SCRIPT_LOCATION_WATERSHED = QA_CODE_DIRECTORY + "watershed_line_extraction.py"
+LINEEXTRACTION_TYPE_WATERSHED = "watershed"
+LINEEXTRACTION_TYPES = [
+    LINEEXTRACTION_TYPE_WATERSHED
 ]
-ERRORS_FILE_PREFIX = "autocrop_errors"
-STATS_FILE_PREFIX = "autocrop_results"
+ERRORS_FILE_PREFIX = "line_extraction_errors"
+STATS_FILE_PREFIX = "line_extraction_results"
 
 # sbatch parameters
 SBATCH_MEMORY_PER_CPU = "1999mb"
 SBATCH_NUMBER_CPUS = "2"
 SBATCH_PARTITION = "RM-shared"
-SBATCH_TIME = "06:00:00"
+SBATCH_TIME = "48:00:00"
 
 
 # Classes
@@ -248,7 +251,7 @@ class QA_LineExtraction(QA_Module):
         book_name = Path(p_book_directory).name
 
         slurm_results = []
-        for le_type in LINE_EXTRACTION_TYPES:
+        for le_type in LINEEXTRACTION_TYPES:
         
             print("Creating slurm job for QA of line extraction {0} with line extraction type {1}".format(book_name, le_type, flush=True))
 
@@ -264,7 +267,7 @@ class QA_LineExtraction(QA_Module):
             subprocess_cmd = "sbatch"
             for arg in sbatch_args:
                 subprocess_cmd += " {0} {1}".format(arg, sbatch_args[arg])
-            subprocess_cmd += " {0}{1}qa_line_extraction.sh {2} {3}".format(os.getcwd(), os.sep, p_book_directory, self.config[RUN_UUID])
+            subprocess_cmd += " {0}{1}qa_line_extraction_final.sh {2} {3}".format(os.getcwd(), os.sep, p_book_directory, self.config[RUN_UUID])
 
             # Optional flags
             # if CROPTYPE_THRESHOLD_BY_INSIDE == le_type:
@@ -524,39 +527,86 @@ def read_error_file(error_filepath):
     
     return error_lookup
 
-def run_autocrop(args):
+def run_line_extraction(args):
 
-    """ Call auto_crop.py for the given book """
-    
-    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
-            
-    # 1. Determine output path for cropped images and create it if it does not exist
-    output_path = "{0}results{1}{2}{1}".format(format_path(str(args.book_directory)), os.sep, autocrop_type)
+    book_directory = format_path(args.book_directory)
+    output_directory = format_path(args.output_directory)
+    book_name = Path(book_directory).name
+    le_type = LINEEXTRACTIONTYPE_WATERSHED
+
+    # 0. Determine output path for cropped images and create it if it does not exist
+    output_path = format_path(book_directory + RESULTS_DIRECTORY + le_type)
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
-    # 2. Path for error output will be in the top level results directory
-    error_path = "{0}results{1}".format(format_path(str(args.book_directory)), os.sep)
+    # 0. Path for error output will be in the top level results directory
+    error_path = format_path(book_directory + RESULTS_DIRECTORY)"{0}{1}{2}".format(book_directory, RESULTS_DIRECTORY, os.sep)
 
-    # 2. Run auto_crop.py on the book with the given arguments
+    # 1. Prepare directory for line extraction and its QA
+    print("Preparing directory {0} for line extraction QA".format(book_name))
+    
+    # A. Make subdirectories that will be used by the line extraction scripts
+    print("Making necessary subdirectories...")
+    os.makedirs(book_directory + DIRECTORY_PAGES)
+    os.makedirs(book_directory + DIRECTORY_PAGES_COLOR)
+    os.makedirs(book_directory + DIRECTORY_LINES)
+    os.makedirs(book_directory + DIRECTORY_LINES_COLOR)
+
+    # B. Copy the page images to the line extraction subdirectories
+    print("Copying original images to subdirectories...")
+    for image_filepath in glob.glob(book_directory + "*.tif"):
+        shutil.copy(image_filepath, book_directory + DIRECTORY_PAGES)
+        shutil.copy(image_filepath, book_directory + DIRECTORY_PAGES_COLOR)
+
+    # C. Copy Python scripts for parts of line extraction to subdirectories
+    print("Copying scripts to subdirectories...")
+    shutil.copy(LINEEXTRACTION_SCRIPT_LOCATION_DHSEGMENT, book_directory + DIRECTORY_PAGES)
+    shutil.copy(LINEEXTRACTION_SCRIPT_LOCATION_WATERSHED, book_directory + DIRECTORY_LINES)
+
+    # 2. Run line extraction on book
+
+    # A. Move to the 'pages' subdirectory
+    os.chdir(book_directory + DIRECTORY_PAGES)
+
+    # B. Run run_dhsegment_on_book.py (recently copied here in 'pages')
+    print("Running run_dhsegment_on_book.py for {0}...".format(book_name))
     subprocess_args = [
         "python3",
-        AUTOCROP_SCRIPT_LOCATION,
-        "--path", str(args.book_directory),
-        "--output_path", output_path,
-        "--error_path", error_path,
-        "--run_uuid", args.run_uuid,
-        "--test"]
-    if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
-        subprocess_args.append("--threshold_by_inside")
-    subprocess_args.append("*.tif")
-
+        Path(LINEEXTRACTION_SCRIPT_LOCATION_DHSEGMENT).name
+    ]
     print("Running command: {0}".format(" ".join(subprocess_args)))
-    subprocess.run(subprocess_args)
+    subprocess.run(subprocess_args)    
 
+    # C. Move to the 'lines' subdirectory
+    os.chdir(book_directory + DIRECTORY_LINES)
+
+    # D. Run watershed_line_extraction.py
+    print("Running watershed_line_extraction.py on pages of {0}...".format(book_name))
+    subprocess_args = [
+        "python3",
+        "-u",
+        Path(LINEEXTRACTION_SCRIPT_LOCATION_WATERSHED).name,
+        ".." + os.sep + DIRECTORY_PAGES_COLOR,
+        ".." + os.sep + DIRECTORY_PAGES,
+        "..{0}{1}{0}dhsegment_output".format(os.sep, DIRECTORY_PAGES),
+        "--lines_output_directory", ".",
+        "--color_lines_output_directory", ".." + os.sep + DIRECTORY_LINES_COLOR,
+        "--max_height", "200",
+        "--min_width", "200",
+        "--extension", ".tif",
+        "--line_height_quantile", "0.85",
+        "--transformations_csv", "..{0}{1}{0}transformations.csv".format(os.sep, DIRECTORY_LINES_COLOR)
+    ]
+    print("Running command: {0}".format(" ".join(subprocess_args)))
+    subprocess.run(subprocess_args)       
+
+    print("Done with watershed line extraction.")
+
+    # 5. Move up one directory to return to top-level book directory
+    os.chdir(book_directory)
 
 if __name__ == "__main__":
 
     args = parse_args()
-    run_autocrop(args)
+    run_line_extraction(args)
     output_stats(args)
