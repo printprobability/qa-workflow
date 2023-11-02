@@ -4,7 +4,6 @@
 # Creation Date: October 2, 2023
 # Script Info:
 # Runs autocrop QA script on given book directory
-# NOTE: All autocropping types are done in one run of the QA script
 
 # 1. Load the environment
 source ~/.bashrc
@@ -28,8 +27,6 @@ else
   fi
 
   python3 qa_autocrop.py $1 $2 $3
-  # python3 qa_autocrop.py $1 $2
-  # python3 qa_autocrop.py $1 $2 --threshold_by_inside
 fi
 
 
