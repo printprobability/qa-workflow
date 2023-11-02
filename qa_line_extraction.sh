@@ -1,30 +1,35 @@
 #!/bin/bash
+#SBATCH -c 2
+#SBATCH --mem-per-cpu 1999MB
+#SBATCH -t 48:00:00
+#SBATCH -p RM-shared
+#SBATCH -o ./logs/qa_le_slurm-%j.out
 
 # Author: Jonathan Armoza
 # Creation Date: October 31, 2023
 # Script Info:
 # Runs line extraction QA script on given book directory
 
+function fail {
+
+    printf '%s\n' "$1" >&2  ## Send message to stderr. Exclude >&2 if you don't want it that way.
+    exit "${2-1}"  ## Return a code specified by $2 or 1 by default.
+}
+
 echo "In qa_line_extraction.sh"
 
-# 1. Load the environment
-source ~/.bashrc
-module load anaconda3
-conda init
-conda activate "/ocean/projects/hum160002p/gsell/.conda/envs/my_env"
-
-# 2. Make sure at least a book directory and run ID have been passed to this script
+# 0. Make sure at least a book directory and run ID have been passed to this script
 if [ -z "$1" ] || [ -z "$2" ]
 then
   fail "qa_line_extraction.sh must be supplied with a book directory and unique run ID."
 fi
 
-# 3. Run QA for line extraction over this book directory
+# 1. Run QA for line extraction over this book directory
 
-# 1. Switch to the top level book directory
+# 2. Switch to the top level book directory
 cd $1
 
-# 2. Run line_extract_dhsegment.dh
+# 3. Run line_extract_dhsegment.dh
 
 # A. Date is shown
 date
@@ -140,7 +145,3 @@ fi
 #   # python3 qa_autocrop.py $1 $2
 #   # python3 qa_autocrop.py $1 $2 --threshold_by_inside
 # fi
-
-
-
-
