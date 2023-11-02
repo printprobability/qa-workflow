@@ -540,7 +540,7 @@ def run_line_extraction(args):
         os.makedirs(output_path)
 
     # 0. Path for error output will be in the top level results directory
-    error_path = format_path(book_directory + RESULTS_DIRECTORY)"{0}{1}{2}".format(book_directory, RESULTS_DIRECTORY, os.sep)
+    error_path = format_path(book_directory + RESULTS_DIRECTORY)
 
     # 1. Prepare directory for line extraction and its QA
     print("Preparing directory {0} for line extraction QA".format(book_name))
