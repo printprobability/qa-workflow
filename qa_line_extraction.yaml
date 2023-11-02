@@ -1,0 +1,14 @@
+# COMMANDS: ["archive"]
+# COMMANDS: ["clear"]
+# COMMANDS: ["run"]
+# COMMANDS: ["collate"]
+# COMMANDS: ["collate_errors"]
+COMMANDS: ["clear_results"]
+
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/"
+# RUN_TYPE: "multi"
+
+BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/tbraddyll_R4267_duke_8_essaytoheraldry1684/"
+RUN_TYPE: "single"
+
+OUTPUT_DIRECTORY: "/ocean/projects/hum160002p/shared/books/code/qa_workflow/logs/"

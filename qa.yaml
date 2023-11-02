@@ -1,4 +1,0 @@
-BOOKS_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_autocrop/"
-OUTPUT_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_autocrop/output/"
-QA_TYPE: "autocrop"
-COMMANDS: ["clear_output", "run_qa", "collate_results"]
