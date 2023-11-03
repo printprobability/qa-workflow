@@ -8,6 +8,9 @@
 import glob
 import importlib
 import os
+import queue
+import subprocess
+import _thread
 import uuid
 
 
@@ -48,7 +51,102 @@ class QA_Module:
         pass  
 
     def run(self):
-        pass  
+        pass
+
+class QAProcess:
+
+    def __init__(self, p_command, p_args, p_description):
+
+        self.m_command = p_command
+        self. p_args
+        self.description = p_description
+        
+        self.m_popen_handle = None
+
+    def open(self):
+
+        self.m_popen_handle = subprocess.Popen([self.m_command, *self.m_args])
+
+    @property
+    def handle(self):
+        return self.m_popen_handle
+    
+    @property
+    def command(self):
+        return self.m_command
+    
+    @property
+    def args(self):
+        return self.m_args
+    
+    @property
+    def description(self):
+        return self.m_description
+
+class QAProcessWaiter:
+
+    def __init__(self):
+
+        self.m_process_count = 0
+        self.m_processes = []
+        self.m_queue = queue.queue()
+
+    def __process_waiter(self, p_process_handle, p_description):
+
+        try:
+            p_process_handle.wait()
+        finally:
+            self.m_queue.put((
+                p_description,
+                p_process_handle.returncode
+            ))
+
+    def __remove_process(self, p_description):
+
+        found_process = False
+        found_index = -1
+        for index in range(len(self.m_processes)):
+            if p_description == self.m_processes[index][0].description:
+                found_index = index
+                break
+        
+        if -1 != found_index:
+            del self.m_processes[found_index]
+
+    def start_process(self, p_qa_process):
+
+        if self.process_is_in_queue(p_qa_process.description):
+            raise Exception("A QA process with description '{0}' is already in queue.\n" + \
+                            "QA processes must have unique descriptions.")
+
+        # 1. Save a reference to the process and open it
+        self.m_processes.append((p_qa_process, p_qa_process.open()))
+
+        # 2. Begin a new thread to wait on this process's finish
+        _thread.start_new_thread(
+            self.__process_waiter, (
+                p_qa_process.handle,
+                p_qa_process.description,
+                self.m_queue
+            )
+        )
+        
+        self.m_process_count += 1
+
+    def wait_till_all_finished(self):
+
+        while self.m_process_count > 0:
+
+            description, return_code = self.m_queue().get()
+            print("Job {0} ended with return code: {1}".format(description, return_code))
+            self.m_process_count -= 1
+
+    @property
+    def process_is_in_queue(self, p_description):
+        for index in range(len(self.m_processes)):
+            if p_description == self.m_processes[index][0].description:
+                return True
+        return False
 
 # Functions
 
@@ -152,4 +250,3 @@ def wait_while_exists(p_path):
 
     while os.path.exists(p_path):
         pass
-    
