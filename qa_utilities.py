@@ -21,7 +21,7 @@ class QA_Module:
 
     def __init__(self, p_config):
         
-        self.m_config = p_config
+        self.config = p_config
         self.process_queue = QAProcessWaiter()
 
     def call_command(self, p_command_name):
