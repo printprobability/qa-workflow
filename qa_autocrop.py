@@ -51,7 +51,6 @@ class QA_Autocrop(QA_Module):
 
     def __init__(self, p_config):
 
-        self.config = p_config
         self.slurm_job_results = []
 
     def archive_logs(self):
