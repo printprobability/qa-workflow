@@ -20,7 +20,14 @@ import uuid
 class QA_Module:
 
     def __init__(self, p_config):
-        pass
+        
+        self.m_config = p_config
+        self.process_queue = QAProcessWaiter()
+
+    def call_command(self, p_command_name):
+        
+        getattr(self, p_command_name)()
+        self.wait()
 
     def archive(self):
         self.archive_logs()
@@ -52,6 +59,9 @@ class QA_Module:
 
     def run(self):
         pass
+    
+    def wait(self):
+        self.m_process_queue.wait_till_all_finished()
 
 class QAProcess:
 
@@ -87,9 +97,8 @@ class QAProcessWaiter:
 
     def __init__(self):
 
-        self.m_process_count = 0
         self.m_processes = []
-        self.m_queue = queue.queue()
+        self.m_queue = queue.Queue()
 
     def __process_waiter(self, p_process_handle, p_description):
 
@@ -130,19 +139,23 @@ class QAProcessWaiter:
                 self.m_queue
             )
         )
-        
-        self.m_process_count += 1
 
     def wait_till_all_finished(self):
 
-        while self.m_process_count > 0:
+        # Wait for all processes on the queue to finish
+        while len(self.m_processes) > 0:
 
+            # 1. Wait for a process on the queue to finish
             description, return_code = self.m_queue().get()
+
+            # 2. Once done, remove it from the process list
+            self.__remove_process(description)
+
             print("Job {0} ended with return code: {1}".format(description, return_code))
-            self.m_process_count -= 1
 
     @property
     def process_is_in_queue(self, p_description):
+
         for index in range(len(self.m_processes)):
             if p_description == self.m_processes[index][0].description:
                 return True
