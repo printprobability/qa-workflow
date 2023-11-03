@@ -327,10 +327,36 @@ class QA_Autocrop(QA_Module):
         # 1. Start a process to test autocropping methods on this book
         book_name = Path(p_book_directory).name
 
+        # 2. Path for error output will be in the top level results directory
+        error_path = "{0}results{1}".format(format_path(str(p_book_directory)), os.sep)
+
         slurm_results = []
         for autocrop_type in AUTOCROP_TYPES:
+
+            # 2. Determine output path for cropped images and create it if it does not exist
+            output_path = "{0}results{1}{2}{1}".format(format_path(str(p_book_directory)), os.sep, autocrop_type)
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)             
         
             print("Creating slurm job for QA of cropping {0} with autocrop type {1}".format(book_name, autocrop_type, flush=True))
+
+        # NOTE: sbatch will call qa_autocrop.sh but that will now call python3 autocrop.py directly with the arguments below
+
+        # 2. Run auto_crop.py on the book with the given arguments
+        subprocess_args = [
+            "python3",
+            AUTOCROP_SCRIPT_LOCATION,
+            "--path", str(p_book_directory),
+            "--output_path", output_path,
+            "--error_path", error_path,
+            "--run_uuid", self.config[RUN_UUID],
+            "--test"]
+        if CROPTYPE_THRESHOLD_BY_INSIDE == autocrop_type:
+            subprocess_args.append("--threshold_by_inside")
+        subprocess_args.append("*.tif")
+
+        print("Running command: {0}".format(" ".join(subprocess_args)))
+        subprocess.run(subprocess_args)           
 
             # A. Build subprocess arguments for sbatch call
             sbatch_args = {
