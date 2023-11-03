@@ -97,7 +97,7 @@ def run_commands():
 
     # 1. Run QA commands in the sequence listed in the loaded config
     for cmd in qa_config[COMMANDS]:
-        getattr(qa_module, cmd)()
+        qa_module.call_command(cmd)
         
 def save_config(p_args):
 
