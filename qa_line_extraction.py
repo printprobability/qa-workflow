@@ -253,7 +253,7 @@ class QA_LineExtraction(QA_Module):
         slurm_results = []
         for le_type in LINEEXTRACTION_TYPES:
         
-            print("Creating slurm job for QA of line extraction {0} with line extraction type {1}".format(book_name, le_type, flush=True))
+            print("Creating slurm job for QA of line extraction {0} with line extraction type {1}".format(book_name, le_type))
 
             # A. Build subprocess arguments for sbatch call
             sbatch_args = {
@@ -273,7 +273,7 @@ class QA_LineExtraction(QA_Module):
             # if CROPTYPE_THRESHOLD_BY_INSIDE == le_type:
             #     subprocess_cmd += " --" + le_type
 
-            print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd), flush=True)
+            print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd))
 
             slurm_results.append(subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True))
         

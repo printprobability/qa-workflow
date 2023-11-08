@@ -15,7 +15,9 @@ from pathlib import Path
 import yaml
 
 # Custom
+from qa_autocrop import QA_Autocrop
 from qa_constants import *
+from qa_line_extraction import QA_LineExtraction
 from qa_utilities import *
 
 
@@ -33,7 +35,7 @@ def handle_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "qa_function",
-        help="Part of the pipeline you want to QA. Current options: 'autocrop'")
+        help="Part of the pipeline you want to QA. Current options: 'autocrop' and 'line_extraction'")
     parser.add_argument(
         "--config_file",
         help="Path to a yaml configuration file for your QA run")
@@ -43,6 +45,10 @@ def handle_args():
     parser.add_argument(
         "--output_directory",
         help="Directory where QA output should go. Default output is ")
+    parser.add_argument(
+        "--output_stats",
+        action="store_true",
+        help="Command to just output a csv file containing stats on a completed QA run")
     parser.add_argument(
         "--single_book",
         action="store_true",
@@ -62,29 +68,29 @@ def handle_args():
         success = False
     elif args.single_book:
         if not args.book_directory:
-            print("Single book runs must specify the book directory.", flush=True)
-            print('Example: python qa.py --single_book --book_directory "/my/example/book/dir/"', flush=True)
+            print("Single book runs must specify the book directory.")
+            print('Example: python qa.py --single_book --book_directory "/my/example/book/dir/"')
             success = False
         if not os.path.exists(args.book_directory):
-            print("Book directory: {0} does not exist.".format(args.book_directory), flush=True)
+            print("Book directory: {0} does not exist.".format(args.book_directory))
             success = False
         elif not os.path.isdir(args.book_directory):
-            print("Book directory: {0} is not a directory.".format(args.book_directory), flush=True)
+            print("Book directory: {0} is not a directory.".format(args.book_directory))
             success = False
     elif args.config_file:
         if not os.path.exists(args.config_file):
-            print("Config file: {0} does not exist.".format(args.config_file), flush=True)
+            print("Config file: {0} does not exist.".format(args.config_file))
             success = False
         elif not os.path.isfile(args.config_file):
-            print("Config file: {0} is not a file.".format(args.config_file), flush=True)
+            print("Config file: {0} is not a file.".format(args.config_file))
             success = False
     if args.output_directory:
         output_parent_directory = Path(args.output_directory).parent
         if not os.path.exists(output_parent_directory):
-            print("Output directory's parent: {0} does not exist.".format(output_parent_directory), flush=True)
+            print("Output directory's parent: {0} does not exist.".format(output_parent_directory))
             success = False
         elif not os.path.isdir(output_parent_directory):
-            print("Output directory's parent: {0} is not a directory.".format(output_parent_directory), flush=True)
+            print("Output directory's parent: {0} is not a directory.".format(output_parent_directory))
             success = False
 
     return args, success
@@ -111,6 +117,8 @@ def save_config(p_args):
     # 2. Save optional config values if given
     if p_args.output_directory:
         qa_config[OUTPUT_DIRECTORY] = format_path(p_args.output_directory)
+    if p_args.output_stats:
+        qa_config[COMMANDS] = [COMMAND_OUTPUT_STATS]
 
     # 3. Save mandatory config values
     if p_args.single_book:
@@ -121,7 +129,7 @@ def save_config(p_args):
 
         # A. Check for TIF images in the book directory
         if not directory_has_files_of_type(qa_config[BOOK_DIRECTORY], ".tif"):
-            print("Could not find any tif images in the book directory: {0}.".format(qa_config[BOOK_DIRECTORY]), flush=True)
+            print("Could not find any tif images in the book directory: {0}.".format(qa_config[BOOK_DIRECTORY]))
             success = False
     else:
 
@@ -143,29 +151,29 @@ def save_config(p_args):
 
         # B. Check contents of config file
         if not all(cmd in config_yaml.keys() for cmd in config_required_fields):
-            print("Config files require at least the 'BOOK_DIRECTORY' key.", flush=True)
+            print("Config files require at least the 'BOOK_DIRECTORY' key.")
             success = False
         for cmd in qa_config[COMMANDS]:
             if cmd not in VALID_COMMANDS:
-                print("{0} is an invalid command. Valid commands: {1}".format(cmd, VALID_COMMANDS), flush=True)
+                print("{0} is an invalid command. Valid commands: {1}".format(cmd, VALID_COMMANDS))
                 success = False
         if qa_config[QA_TYPE] not in VALID_QA_TYPES:
-            print("{0} is an invalid qa type. Valid qa types: {1}".format(qa_config[QA_TYPE], VALID_QA_TYPES), flush=True)
+            print("{0} is an invalid qa type. Valid qa types: {1}".format(qa_config[QA_TYPE], VALID_QA_TYPES))
             success = False
             
     # 4. Check config elements common to both single and multi-book runs
     if not os.path.exists(qa_config[BOOK_DIRECTORY]):
-        print("Book directory: {0} does not exist.".format(qa_config[BOOK_DIRECTORY]), flush=True)
+        print("Book directory: {0} does not exist.".format(qa_config[BOOK_DIRECTORY]))
         success = False
     elif not os.path.isdir(qa_config[BOOK_DIRECTORY]):
-        print("Book directory: {0} is not a directory.".format(qa_config[BOOK_DIRECTORY]), flush=True)
+        print("Book directory: {0} is not a directory.".format(qa_config[BOOK_DIRECTORY]))
         success = False
     output_parent_directory = Path(qa_config[OUTPUT_DIRECTORY]).parent
     if not os.path.exists(output_parent_directory):
-        print("Output directory's parent: {0} does not exist.".format(output_parent_directory), flush=True)
+        print("Output directory's parent: {0} does not exist.".format(output_parent_directory))
         success = False
     elif not os.path.isdir(output_parent_directory):
-        print("Output directory: {0} is not a directory.".format(output_parent_directory), flush=True)
+        print("Output directory: {0} is not a directory.".format(output_parent_directory))
         success = False
 
     # 5. Get a unique UUID for this run, of previous UUID if given as argument
