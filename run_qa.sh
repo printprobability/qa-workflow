@@ -10,4 +10,4 @@ then
     exit "run_qa.sh must be supplied with a qa module name and a config file."
 fi
 
-python3 qa.py $1 --config_file $2
+python3 -u qa.py $1 --config_file $2
