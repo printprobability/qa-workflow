@@ -29,10 +29,14 @@ class QA_Module:
         getattr(self, p_command_name)()
         self.wait()
 
+    def is_method_finished(self, p_book_directory):
+        return False
+
+    # QA methods (listable in "COMMANDS" in config)
+
     def archive(self):
         self.archive_logs()
         self.archive_results()
-
     def archive_logs(self):
         pass    
     def archive_results(self):
@@ -59,23 +63,31 @@ class QA_Module:
 
     def run(self):
         pass
-    
+
+    # Process queue methods
+    def is_process_finished(self, p_description):
+        return not self.process_queue.process_is_in_queue(p_description)
+    def start_process(self, p_command, p_args, p_description):
+        self.process_queue.start_process(QAProcess(p_command, p_args, p_description))                                   
     def wait(self):
-        self.m_process_queue.wait_till_all_finished()
+        self.process_queue.wait_till_all_finished()
 
 class QAProcess:
 
     def __init__(self, p_command, p_args, p_description):
 
         self.m_command = p_command
-        self. p_args
-        self.description = p_description
+        self.m_args = p_args
+        self.m_description = p_description
         
         self.m_popen_handle = None
 
     def open(self):
 
-        self.m_popen_handle = subprocess.Popen([self.m_command, *self.m_args])
+        self.m_popen_handle = subprocess.Popen([self.m_command, *self.m_args], stdout=PIPE, stderr=STDOUT, text=True, shell=True)
+        # self.m_popen_handle = subprocess.run("{0} {1}".format(self.m_command, *self.m_args), capture_output=True, text=True, shell=True)
+
+        return self.m_popen_handle
 
     @property
     def handle(self):
@@ -122,6 +134,13 @@ class QAProcessWaiter:
         if -1 != found_index:
             del self.m_processes[found_index]
 
+    def process_is_in_queue(self, p_description):
+
+        for index in range(len(self.m_processes)):
+            if p_description == self.m_processes[index][0].description:
+                return True
+        return False
+
     def start_process(self, p_qa_process):
 
         if self.process_is_in_queue(p_qa_process.description):
@@ -129,16 +148,16 @@ class QAProcessWaiter:
                             "QA processes must have unique descriptions.")
 
         # 1. Save a reference to the process and open it
-        self.m_processes.append((p_qa_process, p_qa_process.open()))
+        process_handle = p_qa_process.open()
+        self.m_processes.append((p_qa_process, process_handle))
 
         # 2. Begin a new thread to wait on this process's finish
         _thread.start_new_thread(
-            self.__process_waiter, (
-                p_qa_process.handle,
-                p_qa_process.description,
-                self.m_queue
-            )
+            self.__process_waiter,
+            (p_qa_process.handle, p_qa_process.description)
         )
+
+        return process_handle
 
     def wait_till_all_finished(self):
 
@@ -146,20 +165,12 @@ class QAProcessWaiter:
         while len(self.m_processes) > 0:
 
             # 1. Wait for a process on the queue to finish
-            description, return_code = self.m_queue().get()
+            description, return_code = self.m_queue.get()
 
             # 2. Once done, remove it from the process list
             self.__remove_process(description)
 
             print("Job {0} ended with return code: {1}".format(description, return_code))
-
-    @property
-    def process_is_in_queue(self, p_description):
-
-        for index in range(len(self.m_processes)):
-            if p_description == self.m_processes[index][0].description:
-                return True
-        return False
 
 # Functions
 
