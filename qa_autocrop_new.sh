@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Author: Jonathan Armoza
+# Creation Date: October 2, 2023
+# Script Info:
+# Runs autocrop script on given book directory
+
+# 1. Load the environment
+source ~/.bashrc
+module load anaconda3
+conda init
+conda activate "/ocean/projects/hum160002p/gsell/.conda/envs/my_env"
+
+echo "In qa_autocrop_new.sh"
+# echo "with args"
+# echo "$@"
+
+# 2. Run the QA script
+if [ -z "$1" ] || [ -z "$2" ]
+then
+  echo "qa_autocrop.sh must be supplied with a book directory and unique run ID."
+else
+
+  if [ -z "$3" ]
+  then
+    echo "QAing autocrop for $(basename $1) with non_threshold_by_inside..."
+  else
+    echo "QAing autocrop for $(basename $1) with threshold_by_inside..."
+  fi
+
+  python3 -u $@
+#   python3 qa_autocrop.py $1 $2 $3 --single_book --output_stats
+fi
