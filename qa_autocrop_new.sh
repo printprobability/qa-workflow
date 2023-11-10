@@ -12,22 +12,26 @@ conda init
 conda activate "/ocean/projects/hum160002p/gsell/.conda/envs/my_env"
 
 echo "In qa_autocrop_new.sh"
-# echo "with args"
-# echo "$@"
+echo "with args"
+echo "$@"
 
-# 2. Run the QA script
-if [ -z "$1" ] || [ -z "$2" ]
+# 2. QA autocropping
+if [[ "$*" != *"--path"* ]] || [[ "$*" != *"--run_uuid"* ]]
 then
-  echo "qa_autocrop.sh must be supplied with a book directory and unique run ID."
+  echo "qa_autocrop.sh must be supplied with a book directory via --path and unique run ID via --run_uuid."
 else
 
-  if [ -z "$3" ]
+  # A. Run autocrop.py with given arguments for QA/test
+  if [[ "$*" != *"--threshold_by_inside"* ]]
   then
     echo "QAing autocrop for $(basename $1) with non_threshold_by_inside..."
   else
     echo "QAing autocrop for $(basename $1) with threshold_by_inside..."
   fi
-
   python3 -u $@
-#   python3 qa_autocrop.py $1 $2 $3 --single_book --output_stats
+
+  # B. Calculate metrics on the cropping runs and output them into csv files for later collation
+  echo "Calculating metrics and outputting results for $3..."
+  python3 qa.py autocrop --single_book --output_stats --book_directory $3 --run_uuid $9
+
 fi
