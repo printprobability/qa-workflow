@@ -13,7 +13,6 @@ DEFAULT_OUTPUT_DIRECTORY = "{0}{1}output{1}".format(os.getcwd(), os.sep)
 QA_CODE_DIRECTORY = "/ocean/projects/hum160002p/shared/books/code/"
 RESULTS_DIRECTORY = "results"
 
-MASTER_LOG_FILENAME_PREFIX = "qa_autocrop_slurm"
 MERGED_RESULTS_FILENAME_PREFIX = "all_results_merged"
 
 # Yaml config keys
