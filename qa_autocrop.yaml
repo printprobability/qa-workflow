@@ -1,23 +1,27 @@
 # COMMANDS: ["archive"]
 # COMMANDS: ["clear"]
 # COMMANDS: ["run"]
-# COMMANDS: ["collate"]
+COMMANDS: ["collate"]
 # COMMANDS: ["collate_errors"]
-COMMANDS: ["clear_results"]
+# COMMANDS: ["clear", "run", "collate"]
+# COMMANDS: ["output_stats"]
 
-BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/"
+BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/"
 RUN_TYPE: "multi"
 
-# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/anon_R300_hrc_8_paradiseregaind1680/"
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/anon_R300_hrc_8_paradiseregaind1680/"
 # RUN_TYPE: "single"
-# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/anon_R14092_mb_4_themayorofquinboroughmidd1661/"
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/anon_R14092_mb_4_themayorofquinboroughmidd1661/"
 # RUN_TYPE: "single"
-# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/anon_R23994_caolucdl_4_quakerismsubverted1677/"
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/anon_R23994_caolucdl_4_quakerismsubverted1677/"
 # RUN_TYPE: "single"
-# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/ratcliffe_R11587_uk_4_therichmanscharge1659/"
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/tbraddyll_R4267_duke_8_essaytoheraldry1684/"
 # RUN_TYPE: "single"
 
-# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/tbraddyll_R4267_duke_8_essaytoheraldry1684/"
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/ratcliffe_R11587_uk_4_therichmanscharge1659/"
+# RUN_TYPE: "single"
+
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/mclark_R31063_uklw_2_worksambroseparey1691/"
 # RUN_TYPE: "single"
 
 OUTPUT_DIRECTORY: "/ocean/projects/hum160002p/shared/books/code/qa_workflow/logs/"

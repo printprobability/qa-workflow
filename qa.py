@@ -37,6 +37,10 @@ def handle_args():
         "qa_function",
         help="Part of the pipeline you want to QA. Current options: 'autocrop' and 'line_extraction'")
     parser.add_argument(
+        "--collate",
+        action="store_true",
+        help="Gather all results from cropping runs over books listed in config book directory")
+    parser.add_argument(
         "--config_file",
         help="Path to a yaml configuration file for your QA run")
     parser.add_argument(
@@ -95,7 +99,12 @@ def handle_args():
 
     return args, success
 
-def run_commands():
+def run_commands(p_args):
+
+    # Special case to call results collation functionality - done when all results have completed
+    if p_args.collate:
+        qa_module.call_command("collate")
+        return
 
     # 0. Load up the QA class module from config and instantiate a copy of it
     module_name, class_name = QA_TYPE_CLASSES[qa_config[QA_TYPE]]
@@ -186,6 +195,16 @@ def save_config(p_args):
 
     return success
 
+def set_environment_variables():
+
+    # 1. Save this UUID to an OS environmental variable indicating the ID of the current QA run
+    os.environ["QA_AUTOCROP_UUID"] = qa_config[RUN_UUID]
+
+    # 2. Store what commands have been requested
+    for cmd in qa_config[COMMANDS]:
+        os.environ["QA_AUTOCROP_{0}_REQ"] = cmd
+
+
 def main():
 
     # 1. Handle args given to this script
@@ -197,8 +216,11 @@ def main():
     if not save_config(args):
         exit()
 
+    # 3. Set any necessary environmental variables
+    set_environment_variables()
+
     # 3. Run requested commands for this QA module
-    run_commands()
+    run_commands(args)
 
 
 if "__main__" == __name__:

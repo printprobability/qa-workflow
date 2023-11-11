@@ -11,6 +11,7 @@ import os
 import queue
 import subprocess
 import _thread
+import time
 import uuid
 
 
@@ -21,56 +22,123 @@ class QA_Module:
 
     def __init__(self, p_config):
         
+        print("Entering QA_Module.__init__")
+        
         self.config = p_config
         self.process_queue = QAProcessWaiter()
 
+        print("Exiting QA_Module.__init__")
+
     def call_command(self, p_command_name):
+
+        print("Entering QA_Module.call_command")
         
         getattr(self, p_command_name)()
-        self.wait()
+        # self.wait()
+
+        print("Exiting QA_Module.call_command")
 
     def is_method_finished(self, p_book_directory):
+
+        print("Entering/exiting QA_Module.is_method_finished")
+
         return False
 
     # QA methods (listable in "COMMANDS" in config)
 
     def archive(self):
+
+        print("Entering QA_Module.archive")
+
         self.archive_logs()
         self.archive_results()
+
+        print("Exiting QA_Module.archive")
+
     def archive_logs(self):
+
+        print("Entering/exiting QA_Module.archive_logs")
+
         pass    
     def archive_results(self):
+
+        print("Entering/exiting QA_Module.archive_results")
+
         pass
 
     def clear(self):
+
+        print("Entering QA_Module.clear")
+
         self.clear_logs()
         self.clear_results()
+
+        print("Exiting QA_Module.clear")
+
     def clear_logs(self):
+
+        print("Entering/exiting QA_Module.clear_logs")
+
         pass
     def clear_results(self):
+
+        print("Entering/exiting QA_Module.clear_results")
+
         pass
 
     def collate(self):
+
+        print("Entering QA_Module.collate")
+
         self.collate_logs()
         self.collate_results()
         self.collate_errors()
+
+        print("Exiting QA_Module.collate")
+
     def collate_errors(self):
+
+        print("Entering/exiting QA_Module.collate_errors")
+
         pass
+
     def collate_logs(self):
+
+        print("Entering/exiting collate_logs")
+
         pass
     def collate_results(self):
+
+        print("Entering/exiting collate_results")
+
         pass  
 
     def run(self):
+
+        print("Entering/exiting QA_Module.run")
+
         pass
 
     # Process queue methods
     def is_process_finished(self, p_description):
+
+        print("Entering/exiting QA_Module.is_process_finished")
+
         return not self.process_queue.process_is_in_queue(p_description)
     def start_process(self, p_command, p_args, p_description):
-        self.process_queue.start_process(QAProcess(p_command, p_args, p_description))                                   
+
+        print("Entering QA_Module.start_process")
+
+        self.process_queue.start_process(QAProcess(p_command, p_args, p_description))
+
+        print("Exiting QA_Module.start_process")
     def wait(self):
+
+        print("Entering QA_Module.wait")
+
         self.process_queue.wait_till_all_finished()
+
+        print("Exiting QA_Module.wait")
 
 class QAProcess:
 
@@ -84,7 +152,7 @@ class QAProcess:
 
     def open(self):
 
-        self.m_popen_handle = subprocess.Popen([self.m_command, *self.m_args], stdout=PIPE, stderr=STDOUT, text=True, shell=True)
+        self.m_popen_handle = subprocess.Popen([self.m_command, *self.m_args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, shell=True)
         # self.m_popen_handle = subprocess.run("{0} {1}".format(self.m_command, *self.m_args), capture_output=True, text=True, shell=True)
 
         return self.m_popen_handle
