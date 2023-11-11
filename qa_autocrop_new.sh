@@ -31,7 +31,7 @@ else
   python3 -u $@
 
   # B. Calculate metrics on the cropping runs and output them into csv files for later collation
-  echo "Calculating metrics and outputting results for $3..."
-  python3 qa.py autocrop --single_book --output_stats --book_directory $3 --run_uuid $9
+  # echo "Calculating metrics and outputting results for $3..."
+  # python3 qa.py autocrop --single_book --output_stats --book_directory $3 --run_uuid $9
 
 fi
