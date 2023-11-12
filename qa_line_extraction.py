@@ -13,6 +13,7 @@ import subprocess
 import sys
 import traceback
 from pathlib import Path
+from statistics import median, variance
 
 # Third party
 import numpy as np
@@ -34,11 +35,14 @@ DIRECTORY_LINES = "lines" + os.sep
 DIRECTORY_LINES_COLOR = "lines_color" + os.sep
 LINEEXTRACTION_SCRIPT_LOCATION_DHSEGMENT = QA_CODE_DIRECTORY + "run_dhsegment_on_book.py"
 LINEEXTRACTION_SCRIPT_LOCATION_WATERSHED = QA_CODE_DIRECTORY + "watershed_line_extraction.py"
+
 LINEEXTRACTION_TYPE_WATERSHED = "watershed"
 LINEEXTRACTION_TYPES = [
     LINEEXTRACTION_TYPE_WATERSHED
 ]
+
 ERRORS_FILE_PREFIX = "line_extraction_errors"
+MASTER_LOG_FILENAME_PREFIX = "qa_le_slurm"
 STATS_FILE_PREFIX = "line_extraction_results"
 
 # sbatch parameters
@@ -227,6 +231,169 @@ class QA_LineExtraction(QA_Module):
                     # row[line extraction rows],...
                 ])
 
+    def output_stats(self):
+
+        print("Entering QA_LineExtraction.output_stats")
+
+        if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
+            self.__output_stats_on_book(self.config[BOOK_DIRECTORY])
+        elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
+            self.__output_stats_on_all_books()
+
+        print("Exiting QA_LineExtraction.output_stats")
+
+    def __output_stats_on_all_books(self):
+                
+        for book_name in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+            if RESULTS_DIRECTORY != book_name:
+                self.__output_stats_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name))
+
+    def __output_stats_on_book(self, p_book_directory):
+
+        book_dir = p_book_directory
+        book_name = Path(book_dir).name
+        le_type = LINEEXTRACTION_TYPE_WATERSHED
+        csv_results = { book_name: { le_type: {} } }
+        results_folder = format_path(book_dir + RESULTS_DIRECTORY)
+        lines_color_folder = format_path(book_dir + DIRECTORY_LINES_COLOR)
+        line_df_filepath = lines_color_folder + "line_df.csv"
+        pages_color_folder = book_dir + DIRECTORY_PAGES_COLOR 
+
+        # 0. Make a folder for the new output stats file
+        makedirs(results_folder)
+
+        # Check to make sure that the cropping run produced a directory of images
+        # le_type_subfolder = results_folder + le_type
+        # if not os.path.exists(le_type_subfolder):
+        #     print("Cropping for {0} using method '{1}' did not produce any images.".format(book_name, autocrop_type))
+        #     print("No stats csv file for this cropping run will be output.")
+        #     return    
+
+        print("Book dir: {0}".format(book_dir))
+        print("Book name: {0}".format(book_name))
+
+        # 0. Potential error file for this cropping run for this book
+        # error_filepath = "{0}{1}error_{2}_{3}_{4}.txt".format(results_folder, os.sep,
+        #     book_name, le_type, self.config[RUN_UUID])
+        # error_lookup = {}
+        # if os.path.exists(error_filepath):
+        #     error_lookup = read_error_file(error_filepath)
+        # print("FINISHED READING ERROR LOOKUP TABLE")
+        # print("ERROR_LOOKUP:\n{0}".format(error_lookup))
+
+        # 1. Determine info about the lines extracted for the book pages
+
+        csv_results[book_name][le_type]["images"] = {}
+        with open(line_df_filepath, "r") as line_df_file:
+            csv_reader = csv.DictReader(line_df_file)
+
+            # A. Store information for each line on each page
+            for line_row in csv_reader:
+
+                file_name_parts = line_row["file_name"].split("_page1r_")
+                image_name = file_name_parts[0]
+                line_number = file_name_parts[1]
+
+                if image_name not in csv_results[book_name][le_type]["images"]:
+                    csv_results[book_name][le_type]["images"][image_name] = { "lines": {} }
+                csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                    "width": line_row["width"],
+                    "height": line_row["height"]
+                }
+
+            # print("CSV RESULTS SO FAR")
+            # print(csv_results)
+            
+            # B. Calculate line metrics for page
+            for image_name in csv_results[book_name][le_type]["images"]:
+
+                # I. Number of lines on page
+                csv_results[book_name][le_type]["images"][image_name]["num_lines"] = len(csv_results[book_name][le_type]["images"][image_name]["lines"].keys())
+
+                # II. Median height of lines on page
+                csv_results[book_name][le_type]["images"][image_name]["median_line_height"] = median([
+                    float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["height"]) \
+                        for line_number in csv_results[book_name][le_type]["images"][image_name]["lines"]
+                ])
+
+                # III. Variance of line height on page
+                if len(csv_results[book_name][le_type]["images"][image_name]["lines"].keys()) < 2:
+                    csv_results[book_name][le_type]["images"][image_name]["variance_line_height"] = "0"
+                else:
+                    csv_results[book_name][le_type]["images"][image_name]["variance_line_height"] = variance([
+                        float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["height"]) \
+                            for line_number in csv_results[book_name][le_type]["images"][image_name]["lines"]
+                    ])
+
+                # IV. Page dimensions
+                try:
+                    img = Image.open(pages_color_folder + image_name + ".tif")
+                except UnidentifiedImageError:
+                    # error_lookup[Path(image_filepath).name] = str(traceback.format_exc())
+                    print(str(traceback.format_exc()))
+                    continue
+                csv_results[book_name][le_type]["images"][image_name]["image_width"] = img.size[0]
+                csv_results[book_name][le_type]["images"][image_name]["image_height"] = img.size[1]
+                csv_results[book_name][le_type]["images"][image_name]["image_area"]  = img.size[0] * img.size[1]
+
+                # V. Area of page that is lines
+                csv_results[book_name][le_type]["images"][image_name]["area_all_lines"] = sum([
+                    (float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["width"]) * \
+                    float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["height"])) \
+                        for line_number in csv_results[book_name][le_type]["images"][image_name]["lines"]
+                ])
+
+        # 2. Add in errored images with their errors
+        # for image_name in error_lookup:
+        #     print("Adding errored image {0} to csv_results with error {1}".format(image_name, error_lookup[image_name]))
+        #     csv_results[book_name][autocrop_type]["images"][image_name] = {}
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["image_width"] = "N/A"
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["image_height"] = "N/A"
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["min_pct_dimension_difference"] = "N/A"
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["image_area"] = "N/A"
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = "N/A"
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = "N/A"
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"] = "N/A"
+        #     csv_results[book_name][autocrop_type]["images"][image_name]["error"] = traceback_to_str(error_lookup[image_name])
+
+        # 3. Output a csv file of these stats in the autocrop result folder
+        for book_name in csv_results:
+
+            stats_filepath = results_folder + "{0}_{1}_{2}.csv".format(STATS_FILE_PREFIX, le_type, self.config[RUN_UUID])
+
+            with open(stats_filepath, "w") as output_file:
+
+                csv_writer = csv.writer(output_file)
+
+                csv_writer.writerow([
+                    "image_name",
+                    "line_extraction_type",
+                    "image_width",
+                    "image_height",                    
+                    "image_area",
+                    "area_all_lines",
+                    "num_lines",
+                    "variance_line_height",
+                    "median_line_height",
+                    "error"
+                ])
+
+                for le_type in csv_results[book_name]:
+
+                    for image_name in csv_results[book_name][le_type]["images"]:
+
+                        csv_writer.writerow([
+                                            image_name,
+                                            le_type,
+                                            csv_results[book_name][le_type]["images"][image_name]["image_width"],
+                                            csv_results[book_name][le_type]["images"][image_name]["image_height"],
+                                            csv_results[book_name][le_type]["images"][image_name]["image_area"],
+                                            csv_results[book_name][le_type]["images"][image_name]["area_all_lines"],
+                                            csv_results[book_name][le_type]["images"][image_name]["num_lines"],
+                                            csv_results[book_name][le_type]["images"][image_name]["variance_line_height"],
+                                            csv_results[book_name][le_type]["images"][image_name]["median_line_height"],
+                                            ""])
+                                            # "'" + csv_results[book_name][le_type]["images"][image_name]["error"] + "'"])
     def run(self):
 
         self.slurm_job_results = []
@@ -245,224 +412,86 @@ class QA_LineExtraction(QA_Module):
             for book_name in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]) \
             if Path(self.config[OUTPUT_DIRECTORY]).name != book_name ]
 
-    def __run_on_book(self, p_book_directory): 
+    def __run_on_book(self, p_book_directory):
+
+        print("In __run_on_book")
 
         # 1. Start a process to test line extraction methods on this book
         book_name = Path(p_book_directory).name
 
+        # 2. Path for error output will be in the top level results directory
+        error_path = "{0}results{1}".format(format_path(str(p_book_directory)), os.sep)
+
+        # 3. Spin up a slurm job to extract lines with each possible line extraction type on this book
         slurm_results = []
+        le_job_ids = []
         for le_type in LINEEXTRACTION_TYPES:
+
+            # A. Determine output path for line extraction files and create it if it does not exist
+            output_path = "{0}results{1}{2}{1}".format(format_path(str(p_book_directory)), os.sep, le_type)
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)             
         
             print("Creating slurm job for QA of line extraction {0} with line extraction type {1}".format(book_name, le_type))
 
-            # A. Build subprocess arguments for sbatch call
-            sbatch_args = {
+            # B. Run line extraction on the book with the given arguments
+
+            # I. Save the job ID for outputting stats on line extraction runs afterward
+            job_id = "{0}_{1}_{2}".format(book_name, le_type, self.config[RUN_UUID])
+            le_job_ids.append(job_id)            
+
+            # II. sbatch arguments
+            sbatch_directives = {
 
                 "-c": SBATCH_NUMBER_CPUS,
+                "-J": job_id,
                 "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
-                "-t": SBATCH_TIME,
                 "-o": "{0}slurm-{1}_{2}_{3}.out".format(self.config[OUTPUT_DIRECTORY], book_name, le_type, self.config[RUN_UUID]),
-                "-p": SBATCH_PARTITION
+                "-p": SBATCH_PARTITION,                
+                "-t": SBATCH_TIME
             }
+
+            # III. Build the sbatch call
             subprocess_cmd = "sbatch"
-            for arg in sbatch_args:
-                subprocess_cmd += " {0} {1}".format(arg, sbatch_args[arg])
-            subprocess_cmd += " {0}{1}qa_line_extraction_final.sh {2} {3}".format(os.getcwd(), os.sep, p_book_directory, self.config[RUN_UUID])
+            for arg in sbatch_directives:
+                subprocess_cmd += " {0} {1}".format(arg, sbatch_directives[arg])
+            subprocess_cmd += " {0}{1}qa_line_extraction_final.sh {2} {3} {4}".format(os.getcwd(), os.sep, p_book_directory, self.config[OUTPUT_DIRECTORY], self.config[RUN_UUID])
 
-            # Optional flags
-            # if CROPTYPE_THRESHOLD_BY_INSIDE == le_type:
-            #     subprocess_cmd += " --" + le_type
+            # print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd))
+            # slurm_results.append(subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True))
 
-            print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd))
-
-            slurm_results.append(subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True))
+            # V. Run sbatch and save results
+            # slurm_results.append(subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True))
+            slurm_results.append(
+                subprocess.Popen(
+                    subprocess_cmd,
+                    shell=True,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    text=True
+                )
+            )            
+        
+        # 4. Build and run a dependent sbatch call for the output of stats on these line extraction runs for this book
+        # sbatch_output_stats = "sbatch"
+        # sbatch_output_stats += " --dependency=afterok:{0}".format(",".join(le_job_ids))
+        # sbatch_output_stats += " qa_autocrop_outputstats.sh"
+        # # sbatch_output_stats += " --wrap=\"python3 qa.py line_extraction --single_book --output_stats --book_directory {0} --run_uuid {1}\"".format(book_name, self.config[RUN_UUID])
+        # slurm_results.append(
+        #     subprocess.Popen(
+        #         sbatch_output_stats,
+        #         shell=True,
+        #         stderr=subprocess.PIPE,
+        #         stdout=subprocess.PIPE,
+        #         text=True
+        #     )
+        # )
+        # print("subprocess.Popen({0} shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)".format(sbatch_output_stats))   
         
         return slurm_results
 
 
 # Main script functions
-
-def output_stats(args):
-
-    # 0. Output path
-    output_folder = format_path(args.book_directory)
-
-    csv_results = {}
-
-    book_dir = args.book_directory
-    book_name = os.path.basename(book_dir[0:len(book_dir)-1])
-    csv_results[book_name] = { "original": {} }
-    results_folder = "{0}results{1}".format(output_folder, os.sep)
-    autocrop_type = CROPTYPE_THRESHOLD_BY_INSIDE if args.threshold_by_inside else CROPTYPE_NON_THRESHOLD_BY_INSIDE
-    autocrop_type_subfolder = results_folder + autocrop_type
-
-    # Check to make sure that the cropping run produced a directory of images
-    # if not os.path.exists(autocrop_type_subfolder):
-    #     print("Cropping for {0} using method '{1}' did not produce any images.".format(book_name, autocrop_type))
-    #     print("No stats csv file for this cropping run will be output.")
-    #     return    
-
-    print("Book dir: {0}".format(book_dir))
-    print("Book name: {0}".format(book_name))
-
-    # 0. Potential error file for this cropping run for this book
-    error_filepath = "{0}results{1}error_{2}_{3}_{4}.txt".format(output_folder, os.sep,
-        book_name, autocrop_type, args.run_uuid)
-    error_lookup = {}
-    if os.path.exists(error_filepath):
-        error_lookup = read_error_file(error_filepath)
-
-    print("FINISHED READING ERROR LOOKUP TABLE")
-    print("ERROR_LOOKUP:\n{0}".format(error_lookup))
-
-    # 1. Determine info about the original images
-
-    # A. The number of original images
-    csv_results[book_name]["original"]["file_count"] = len(get_items_in_dir(str(book_dir), ["files"]))
-    csv_results[book_name]["original"]["images"] = {}
-
-    # B. Gather stats on the original book images
-    for image_filepath in Path(args.book_directory).glob("*.tif"):
-
-        try:
-            img = Image.open(image_filepath)
-        except UnidentifiedImageError:
-            error_lookup[Path(image_filepath).name] = str(traceback.format_exc())
-            continue
-        image_name = os.path.basename(image_filepath)
-        csv_results[book_name]["original"]["images"][image_name] = { "binarized_image": binarize_img(img)[0] }
-
-        # Image area
-        csv_results[book_name]["original"]["images"][image_name]["image_width"] = img.size[0]
-        csv_results[book_name]["original"]["images"][image_name]["image_height"] = img.size[1]
-        csv_results[book_name]["original"]["images"][image_name]["image_area"]  = img.size[0] * img.size[1]
-
-        # N/A values
-        csv_results[book_name]["original"]["images"][image_name]["area_diff_from_original"] = 0
-        csv_results[book_name]["original"]["images"][image_name]["percent_area_diff_from_original"] = 0
-        csv_results[book_name]["original"]["images"][image_name]["frobenius_norm_from_original"] = 0
-        csv_results[book_name]["original"]["images"][image_name]["min_pct_dimension_difference"] = 0
-        csv_results[book_name]["original"]["images"][image_name]["error"] = "N/A"
-
-    # 2. Comparisons between originals and autocrop run
-
-    csv_results[book_name][autocrop_type] = {}
-
-    # A. The number of autocropped images
-    csv_results[book_name][autocrop_type]["file_count"] = len(get_items_in_dir(autocrop_type_subfolder, ["files"]))
-    csv_results[book_name][autocrop_type]["images"] = {} 
-
-    # B. Gather stats on autocropped images and compare to original images
-    for image_filepath in Path(autocrop_type_subfolder).glob("*.tif"):
-
-        try:
-            img = Image.open(image_filepath)
-        except Exception as e:
-            print("Image opening exception for {0}".format(image_filepath))
-            error_lookup[Path(image_filepath).name] = str(traceback.format_exc())
-            continue
-        image_name = os.path.basename(image_filepath)
-
-        # I. Find second to last dash in cropped image filepath
-        # original_image_name = image_name[image_name.rfind("-", 0, image_name.rfind("-")) + 1:]
-        csv_results[book_name][autocrop_type]["images"][image_name] = {}
-
-        # II. Image area comparison
-        csv_results[book_name][autocrop_type]["images"][image_name]["image_width"] = img.size[0]
-        csv_results[book_name][autocrop_type]["images"][image_name]["image_height"] = img.size[1]
-
-        # min( (width - width_original) / width_original, (height - height_original) / height_original) )
-        autocropped_width = csv_results[book_name][autocrop_type]["images"][image_name]["image_width"]
-        autocropped_height = csv_results[book_name][autocrop_type]["images"][image_name]["image_height"]
-        original_width = csv_results[book_name]["original"]["images"][image_name]["image_width"]
-        original_height = csv_results[book_name]["original"]["images"][image_name]["image_height"]
-        csv_results[book_name][autocrop_type]["images"][image_name]["min_pct_dimension_difference"] = \
-            min((autocropped_width - original_width) / original_width,
-                (autocropped_height - original_height) / original_height)
-
-        csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]  = img.size[0] * img.size[1]
-        csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = \
-            csv_results[book_name]["original"]["images"][image_name]["image_area"] - \
-            csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]
-        csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = 100.0 * \
-            (float(csv_results[book_name][autocrop_type]["images"][image_name]["image_area"]) / \
-             float(csv_results[book_name]["original"]["images"][image_name]["image_area"]))
-        
-        # III. Frobenius norm between original and autocropped images
-
-        # a. Pad the autocropped image to the size of the original
-        new_image = Image.new(
-            img.mode,
-            (csv_results[book_name]["original"]["images"][image_name]["image_width"],
-            csv_results[book_name]["original"]["images"][image_name]["image_height"]),
-        ) 
-        new_image.paste(img, (0, 0))
-
-        # b. Binarize the autocropped image
-        autocrop_img_mtx = np.asarray(binarize_img(new_image)[0]).astype(int)
-
-        # c. Calculate the Frobenius norm between the two binarized images
-        original_img_mtx = np.asarray(csv_results[book_name]["original"]["images"][image_name]["binarized_image"]).astype(int)
-        diffed_img_mtx = np.subtract(original_img_mtx, autocrop_img_mtx)
-        csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"] = np.linalg.norm(diffed_img_mtx, "fro")
-
-        # IV. All images found are likely not errored
-        csv_results[book_name][autocrop_type]["images"][image_name]["error"] = "N/A"
-
-    # 3. Add in errored images with their errors
-    for image_name in error_lookup:
-        print("Adding errored image {0} to csv_results with error {1}".format(image_name, error_lookup[image_name]))
-        csv_results[book_name][autocrop_type]["images"][image_name] = {}
-        csv_results[book_name][autocrop_type]["images"][image_name]["image_width"] = "N/A"
-        csv_results[book_name][autocrop_type]["images"][image_name]["image_height"] = "N/A"
-        csv_results[book_name][autocrop_type]["images"][image_name]["min_pct_dimension_difference"] = "N/A"
-        csv_results[book_name][autocrop_type]["images"][image_name]["image_area"] = "N/A"
-        csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = "N/A"
-        csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = "N/A"
-        csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"] = "N/A"
-        csv_results[book_name][autocrop_type]["images"][image_name]["error"] = traceback_to_str(error_lookup[image_name])
-
-    # 4. Output a csv file of these stats in the autocrop result folder
-    for book_name in csv_results:
-
-        results_folder = "{0}results{1}".format(output_folder, os.sep)
-        stats_filepath = results_folder + "{0}_{1}_{2}.csv".format(STATS_FILE_PREFIX, autocrop_type, args.run_uuid)
-
-        with open(stats_filepath, "w") as output_file:
-
-            csv_writer = csv.writer(output_file)
-
-            csv_writer.writerow([
-                "book_name",
-                "total_page_count",
-                "autocrop_type",
-                "image_name",
-                "image_width",
-                "image_height",
-                "min_pct_dimension_difference",
-                "image_area",
-                "area_diff_from_original",
-                "percent_area_diff_from_original",
-                "frobenius_norm_from_original",
-                "error"
-            ])
-
-            for autocrop_type in csv_results[book_name]:
-
-                for image_name in csv_results[book_name][autocrop_type]["images"]:
-
-                    csv_writer.writerow([book_name,
-                                         csv_results[book_name][autocrop_type]["file_count"],
-                                         autocrop_type,
-                                         image_name,
-                                         csv_results[book_name][autocrop_type]["images"][image_name]["image_width"],
-                                         csv_results[book_name][autocrop_type]["images"][image_name]["image_height"],
-                                         csv_results[book_name][autocrop_type]["images"][image_name]["min_pct_dimension_difference"],
-                                         csv_results[book_name][autocrop_type]["images"][image_name]["image_area"],
-                                         csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"],
-                                         csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"],
-                                         csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"],
-                                         "'" + csv_results[book_name][autocrop_type]["images"][image_name]["error"] + "'"])
 
 def parse_args():
 
@@ -470,6 +499,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("book_directory", help="Directory containing the images of one book copied using the create_autocrop_test_dir.py script")
+    parser.add_argument("output_directory", help="Output directory where logs for line extraction QA will go")
     parser.add_argument("run_uuid", help="Unique ID for this autocrop run/batch of autocrop runs")
     
     # Optional args here
@@ -532,7 +562,7 @@ def run_line_extraction(args):
     book_directory = format_path(args.book_directory)
     output_directory = format_path(args.output_directory)
     book_name = Path(book_directory).name
-    le_type = LINEEXTRACTIONTYPE_WATERSHED
+    le_type = LINEEXTRACTION_TYPE_WATERSHED
 
     # 0. Determine output path for cropped images and create it if it does not exist
     output_path = format_path(book_directory + RESULTS_DIRECTORY + le_type)
@@ -547,10 +577,10 @@ def run_line_extraction(args):
     
     # A. Make subdirectories that will be used by the line extraction scripts
     print("Making necessary subdirectories...")
-    os.makedirs(book_directory + DIRECTORY_PAGES)
-    os.makedirs(book_directory + DIRECTORY_PAGES_COLOR)
-    os.makedirs(book_directory + DIRECTORY_LINES)
-    os.makedirs(book_directory + DIRECTORY_LINES_COLOR)
+    makedirs(book_directory + DIRECTORY_PAGES)
+    makedirs(book_directory + DIRECTORY_PAGES_COLOR)
+    makedirs(book_directory + DIRECTORY_LINES)
+    makedirs(book_directory + DIRECTORY_LINES_COLOR)
 
     # B. Copy the page images to the line extraction subdirectories
     print("Copying original images to subdirectories...")

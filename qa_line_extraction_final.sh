@@ -29,7 +29,7 @@ conda init
 conda activate /ocean/projects/hum160002p/nikolaiv/miniconda3/envs/dh_segment
 
 # 2. Run QA for line extraction over this book directory
-python3 qa_line_extraction.py $1 $2
+python3 -u qa_line_extraction.py $1 $2 $3
 
 # 4. Show QA line extraction start time
 date
