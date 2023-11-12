@@ -9,9 +9,9 @@ import glob
 import importlib
 import os
 import queue
+import shutil
 import subprocess
 import _thread
-import time
 import uuid
 
 
@@ -312,6 +312,12 @@ def get_unique_uuid(p_search_directory, p_search_string):
             index = 0
 
     return str(new_uuid)
+
+def makedirs(p_location):
+
+    if os.path.exists(p_location):
+        shutil.rmtree(p_location, ignore_errors=True)
+    os.makedirs(p_location)
 
 def str_to_class(module_name, class_name):
 
