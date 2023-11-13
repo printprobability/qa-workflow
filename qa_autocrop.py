@@ -39,6 +39,7 @@ AUTOCROP_TYPES = [
 
 ERRORS_FILE_PREFIX = "autocrop_errors"
 MASTER_LOG_FILENAME_PREFIX = "qa_autocrop_slurm"
+MERGED_RESULTS_FILENAME_PREFIX = "autocrop_all_results_merged"
 STATS_FILE_PREFIX = "autocrop_results"
 
 
