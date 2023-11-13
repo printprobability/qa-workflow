@@ -5,6 +5,7 @@
 # Imports
 
 # Built-ins
+import csv
 import glob
 import importlib
 import os
@@ -15,6 +16,12 @@ import _thread
 import uuid
 from pathlib import Path
 
+# Third party
+from PIL import Image
+from PIL import UnidentifiedImageError
+
+# Custom
+from qa_constants import *
 
 # Classes
 
@@ -113,6 +120,51 @@ class QA_Module:
         print("Entering/exiting collate_results")
 
         pass  
+
+    def data_stats(self):
+
+        # 1. Calculate stats for book and page images
+        book_stats = {}
+        for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+            
+            book_stats[book_directory] = {
+                "images": {},
+                "num_pages": 0
+            }
+
+            for image_filepath in glob.glob(self.config[BOOK_DIRECTORY] + book_directory + os.sep + "*.tif"):
+                
+                width, height, file_size = get_image_stats(image_filepath)
+                image_name = Path(image_filepath).name
+
+                book_stats[book_directory]["num_pages"] += 1
+                book_stats[book_directory]["images"][image_name] = {}
+                book_stats[book_directory]["images"][image_name]["width"] = width
+                book_stats[book_directory]["images"][image_name]["height"] = height
+                book_stats[book_directory]["images"][image_name]["file_size"] = file_size
+
+        # 2. Write out results to data stats file in output directory
+        with open(self.config[OUTPUT_DIRECTORY] + "data_stats_{0}.csv".format(self.config[RUN_UUID])) as stats_file:
+
+            csv_writer = csv.DictWriter(stats_file)
+            csv_writer.writerow([
+                "image_filename",
+                "num_pages_in_book",
+                "file_size_bytes",
+                "width_pixels",
+                "height_pixels"
+            ])
+
+            for book in book_stats:
+                for image_name in book_stats[book]["images"]:
+                    csv_writer.writerow([
+                        image_name,
+                        book_stats[book]["num_pages"],
+                        book_stats[book]["images"][image_name]["file_size"],
+                        book_stats[book]["images"][image_name]["width"],
+                        book_stats[book]["images"][image_name]["height"],
+                    ])
+
 
     def run(self):
 
@@ -309,6 +361,19 @@ def get_uniquer_error_line(p_error):
         key_line = key_line[0:key_line.find(os.sep)]
 
     return key_line.strip()
+
+def get_image_stats(p_image_filepath):
+
+    try:
+        img = Image.open(p_image_filepath)
+    except UnidentifiedImageError:
+        print("Unidentified image error for {0}".format(Path(p_image_filepath).name))
+
+    width = img.size[0]
+    height = img.size[1]
+    file_size = os.stat(p_image_filepath).st_size
+
+    return width, height, file_size
 
 def get_items_in_dir(path, return_types=[]):
     '''Get all items in given path of type "directories" and/or "files"'''
