@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import _thread
 import uuid
+from pathlib import Path
 
 
 # Classes
@@ -241,6 +242,17 @@ class QAProcessWaiter:
             print("Job {0} ended with return code: {1}".format(description, return_code))
 
 # Functions
+
+def copy_data_directory(p_src_directory, p_dest_directory):
+
+    directories = get_items_in_dir(p_src_directory, ["directories"])
+    for dir in directories:
+        new_dir = p_dest_directory + dir + os.sep
+        if not os.path.exists(new_dir):
+            os.makedirs(new_dir)
+        for src_filepath in glob.glob(p_src_directory + dir + os.sep + "*.tif"):
+            filename = Path(src_filepath).name
+            shutil.copyfile(src_filepath, new_dir + filename)    
 
 def directory_has_files_of_type(p_book_directory, p_file_tag):
 
