@@ -263,6 +263,24 @@ def directory_has_files_of_type(p_book_directory, p_file_tag):
             found_tif = True
     return found_tif
 
+def find_errors(p_errors_to_look_for, p_directory, p_filesearch_str_w_wildcard):
+
+    files_containing_errors = { error_string:[] for error_string in p_errors_to_look_for }
+
+    for filepath in glob.glob(p_directory + p_filesearch_str_w_wildcard):
+        with open(filepath, "r") as log_file:
+            lines = log_file.readlines()
+            for line in lines:
+                for error in p_errors_to_look_for:
+                    if error in line:
+                        files_containing_errors[error].append(Path(filepath).name)
+
+    for error in p_errors_to_look_for:
+        print("{0}:".format(error))
+        for filename in files_containing_errors[error]:
+            print("\t{0}".format(filename))
+        print("=" * 80)
+
 def format_path(original_path):
     '''Make sure given path ends with system folder separator'''
     return original_path if original_path.endswith(os.sep) else original_path + os.sep
