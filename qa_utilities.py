@@ -144,9 +144,9 @@ class QA_Module:
                 book_stats[book_directory]["images"][image_name]["file_size"] = file_size
 
         # 2. Write out results to data stats file in output directory
-        with open(self.config[OUTPUT_DIRECTORY] + "data_stats_{0}.csv".format(self.config[RUN_UUID])) as stats_file:
+        with open(self.config[OUTPUT_DIRECTORY] + "data_stats_{0}.csv".format(self.config[RUN_UUID]), "w") as stats_file:
 
-            csv_writer = csv.DictWriter(stats_file)
+            csv_writer = csv.writer(stats_file)
             csv_writer.writerow([
                 "image_filename",
                 "num_pages_in_book",
@@ -368,6 +368,7 @@ def get_image_stats(p_image_filepath):
         img = Image.open(p_image_filepath)
     except UnidentifiedImageError:
         print("Unidentified image error for {0}".format(Path(p_image_filepath).name))
+        return "N/A", "N/A", "N/A"
 
     width = img.size[0]
     height = img.size[1]
