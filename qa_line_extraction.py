@@ -157,6 +157,10 @@ class QA_LineExtraction(QA_Module):
                 results_directory = format_path(self.config[BOOK_DIRECTORY] + book_directory + os.sep + RESULTS_DIRECTORY)
                 latest_merged_filepath = results_directory + "{0}_{1}_{2}.csv".format(STATS_FILE_PREFIX, LINEEXTRACTION_TYPE_WATERSHED, self.config[RUN_UUID])
 
+                if not os.path.exists(latest_merged_filepath):
+                    print("ERROR: Stats file does not exist for {0} at {1}".format(book_directory, latest_merged_filepath))
+                    continue 
+
                 # B. Save the csv file contents to the merged file
                 with open(latest_merged_filepath, "r") as input_file:
                     
@@ -292,6 +296,11 @@ class QA_LineExtraction(QA_Module):
         # 1. Determine info about the lines extracted for the book pages
 
         csv_results[book_name][le_type]["images"] = {}
+
+        if not os.path.exists(line_df_filepath):
+            print("ERROR: Could not find line_df.csv for {0}".format(book_name))
+            return
+
         with open(line_df_filepath, "r") as line_df_file:
             csv_reader = csv.DictReader(line_df_file)
 
