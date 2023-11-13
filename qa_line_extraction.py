@@ -43,6 +43,7 @@ LINEEXTRACTION_TYPES = [
 
 ERRORS_FILE_PREFIX = "line_extraction_errors"
 MASTER_LOG_FILENAME_PREFIX = "qa_le_slurm"
+MERGED_RESULTS_FILENAME_PREFIX = "le_all_results_merged"
 STATS_FILE_PREFIX = "line_extraction_results"
 
 # sbatch parameters
@@ -106,25 +107,30 @@ class QA_LineExtraction(QA_Module):
 
     def collate_results(self):
 
+        # NOTE: Once more than one line extraction method is introduced,
+        # this method will need to be refactored and __collate_results_on_book
+        # will need to be adapted for QA line extraction
+
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-            self.__collate_results_on_book(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY + os.sep)
+            # self.__collate_results_on_book(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY + os.sep)
+            pass
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
 
-            # 1. Created merged line extraction results for each book in the book directory
-            for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
+            # # 1. Created merged line extraction results for each book in the book directory
+            # for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
 
-                full_bookpath = format_path(self.config[BOOK_DIRECTORY] + book_directory)
+            #     full_bookpath = format_path(self.config[BOOK_DIRECTORY] + book_directory)
 
-                # Skip the QA log output directory if it exists in the book directory
-                if Path(self.config[OUTPUT_DIRECTORY]).name == Path(full_bookpath):
-                    continue
+            #     # Skip the QA log output directory if it exists in the book directory
+            #     if Path(self.config[OUTPUT_DIRECTORY]).name == Path(full_bookpath):
+            #         continue
                 
-                # Write out a merged results file for this book in its results directory
-                try:
-                    self.__collate_results_on_book(full_bookpath + RESULTS_DIRECTORY + os.sep)
-                except Exception as e:
-                    print("Collation of results for book {0} has failed.".format(book_directory))
-                    traceback.print_exc(file=sys.stdout)
+            #     # Write out a merged results file for this book in its results directory
+            #     try:
+            #         self.__collate_results_on_book(full_bookpath + RESULTS_DIRECTORY + os.sep)
+            #     except Exception as e:
+            #         print("Collation of results for book {0} has failed.".format(book_directory))
+            #         traceback.print_exc(file=sys.stdout)
 
             # 2. Create one CSV file for all books in qa output directory
             print("Merging all collated autocrop results")
@@ -139,15 +145,17 @@ class QA_LineExtraction(QA_Module):
             for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
 
                 # A. Get the latest collated csv file
+                # results_directory = format_path(self.config[BOOK_DIRECTORY] + book_directory + os.sep + RESULTS_DIRECTORY)
+                # csv_filepaths = []
+                # for filepath in glob.glob(results_directory + "merged_*.csv"):
+                #     csv_filepaths.append((filepath, os.path.getctime(filepath)))
+                # if 0 == len(csv_filepaths):
+                #     print("No collated csv file found for {0}.".format(book_directory))
+                #     continue
+                # sorted_csv_filepaths = sorted(csv_filepaths, key=lambda filepath: filepath[1], reverse=True)
+                # latest_merged_filepath = sorted_csv_filepaths[0][0]
                 results_directory = format_path(self.config[BOOK_DIRECTORY] + book_directory + os.sep + RESULTS_DIRECTORY)
-                csv_filepaths = []
-                for filepath in glob.glob(results_directory + "merged_*.csv"):
-                    csv_filepaths.append((filepath, os.path.getctime(filepath)))
-                if 0 == len(csv_filepaths):
-                    print("No collated csv file found for {0}.".format(book_directory))
-                    continue
-                sorted_csv_filepaths = sorted(csv_filepaths, key=lambda filepath: filepath[1], reverse=True)
-                latest_merged_filepath = sorted_csv_filepaths[0][0]
+                latest_merged_filepath = results_directory + "{0}_{1}_{2}.csv".format(STATS_FILE_PREFIX, LINEEXTRACTION_TYPE_WATERSHED, self.config[RUN_UUID])
 
                 # B. Save the csv file contents to the merged file
                 with open(latest_merged_filepath, "r") as input_file:
@@ -394,6 +402,7 @@ class QA_LineExtraction(QA_Module):
                                             csv_results[book_name][le_type]["images"][image_name]["median_line_height"],
                                             ""])
                                             # "'" + csv_results[book_name][le_type]["images"][image_name]["error"] + "'"])
+    
     def run(self):
 
         self.slurm_job_results = []
@@ -639,4 +648,3 @@ if __name__ == "__main__":
 
     args = parse_args()
     run_line_extraction(args)
-    output_stats(args)
