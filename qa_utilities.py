@@ -5,13 +5,16 @@
 # Imports
 
 # Built-ins
+import ast
 import csv
 import glob
 import importlib
+import math
 import os
 import queue
 import shutil
 import subprocess
+import sys
 import _thread
 import uuid
 from pathlib import Path
@@ -164,7 +167,6 @@ class QA_Module:
                         book_stats[book]["images"][image_name]["width"],
                         book_stats[book]["images"][image_name]["height"],
                     ])
-
 
     def run(self):
 
@@ -393,6 +395,58 @@ def get_items_in_dir(path, return_types=[]):
 
     return returned_contents
 
+def get_line_extraction_angles(p_search_directory):
+
+    search_dir = format_path(p_search_directory)
+
+    for directory in get_items_in_dir(search_dir, ["directories"]):
+
+        angles = []
+        angle_buckets = { "0": 0, "90": 0, "other": 0 }
+        angle_dist = {}
+        for index in range(10):
+            angle_dist[str(index * 10)] = 0
+
+        lines_color_dir = format_path(search_dir + directory + os.sep + "lines_color")
+
+        # print("lines_color_dir: {0}".format(lines_color_dir))
+
+        if os.path.exists(lines_color_dir) and os.path.exists(lines_color_dir + "line_df.csv"):
+            with open(lines_color_dir + "line_df.csv", "r") as le_file:
+                csv_reader = csv.DictReader(le_file)
+                for row in csv_reader:
+                    angle_of_rotation = float(ast.literal_eval(row["rect"])[2])
+                    angles.append(angle_of_rotation)
+                    if math.isclose(angle_of_rotation, 0, abs_tol=1):
+                        angle_buckets["0"] += 1
+                    elif math.isclose(angle_of_rotation, 90, abs_tol=1):
+                        angle_buckets["90"] += 1
+                    else:
+                        angle_buckets["other"] += 1
+                    for bucket in angle_dist:
+                        if angle_of_rotation >= float(bucket) and \
+                           angle_of_rotation <= float(bucket) + 10:
+                            angle_dist[bucket] += 1
+        
+    unique_angles = list(set(angles))
+
+    print("Unique angle count: {0}".format(len(unique_angles)))
+    print("Angle buckets:")
+    for angle in angle_buckets:
+        print("Angle {0}: {1}".format(angle, angle_buckets[angle]))
+    
+    print("Angle distribution: {0}".format(angle_dist))
+
+    with open(os.getcwd() + os.sep + "angle_bins.csv", "w") as output_file:
+        csv_writer = csv.writer(output_file)
+        csv_writer.writerow(["bucket", "count"])
+        for bucket in angle_dist:
+            csv_writer.writerow([bucket, angle_dist[bucket]])
+    
+    print(angles)
+
+
+
 def get_unique_uuid(p_search_directory, p_search_string):
 
     # 1. Get a random UUID
@@ -444,3 +498,15 @@ def wait_while_exists(p_path):
 
     while os.path.exists(p_path):
         pass
+
+def main(p_args):
+
+    if len(p_args) < 2 or len(p_args[2:]) != len(getattr(p_args[1]).__code__.co_varnames):
+        print("qa_utilities.py usage: ")
+        print("python[3] qa_utilities.py <utility function name> <exact args list for function or none if no args>")
+        return
+
+    getattr(p_args[1])(*p_args[2:])
+
+if "__main__" == __name__:
+    main(sys.argv)
