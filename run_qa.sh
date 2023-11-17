@@ -14,9 +14,3 @@ qa_module=$1
 config_filename=$2
 
 python3 -u qa.py $qa_module --config_file $config_filename
-
-# Collate results from the QA run
-# if [[ -v $QA_AUTOCROP_COLLATE_REQ ]]
-# then
-#   python3 -u qa.py $1 --collate --config_file $2 --run_uuid $QA_AUTOCROP_UUID
-# fi
