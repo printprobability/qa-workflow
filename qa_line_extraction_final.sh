@@ -12,13 +12,13 @@
 
 echo "In qa_line_extraction_final.sh"
 
-# 0. Make sure at least a book directory and run ID have been passed to this script
+# Make sure at least a book directory and run ID have been passed to this script
 if [ -z "$1" ] || [ -z "$2" ]
 then
   fail "qa_line_extraction.sh must be supplied with a book directory and unique run ID."
 fi
 
-# 0. Show QA line extraction start time
+# Show QA line extraction start time
 date
 
 # 1. Activate the conda environment for line extraction
@@ -31,13 +31,13 @@ conda activate /ocean/projects/hum160002p/nikolaiv/miniconda3/envs/dh_segment
 # 2. Run QA for line extraction over this book directory
 python3 -u qa_line_extraction.py $1 $2 $3
 
-# 4. Show QA line extraction start time
+# Show QA line extraction end time
 date
 
-# 6. Deactivate the conda environment for line extraction
+# 3. Deactivate the conda environment for line extraction
 conda deactivate
 
-# 7. If line_extract_dhsegment.sh (and its processes) complete successfully, continue
+# 4. If line_extract_dhsegment.sh (and its processes) complete successfully, continue
 if [ $? -eq 0 ]; then
   echo "Completed line extraction."
 else
