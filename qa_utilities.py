@@ -9,6 +9,7 @@ import ast
 import csv
 import glob
 import importlib
+import inspect
 import math
 import os
 import queue
@@ -404,6 +405,7 @@ def get_line_extraction_angles(p_search_directory):
         angles = []
         angle_buckets = { "0": 0, "90": 0, "other": 0 }
         angle_dist = {}
+        image_angle_dict = {}
         for index in range(10):
             angle_dist[str(index * 10)] = 0
 
@@ -415,14 +417,27 @@ def get_line_extraction_angles(p_search_directory):
             with open(lines_color_dir + "line_df.csv", "r") as le_file:
                 csv_reader = csv.DictReader(le_file)
                 for row in csv_reader:
+
                     angle_of_rotation = float(ast.literal_eval(row["rect"])[2])
+
+                    real_filename = row["file_name"][0:row["file_name"].rfind("-")] + row["file_name"][row["file_name"].rfind("-") + 1:] + ".tif"
+                    image_angle_dict[real_filename] = {
+                        "angle": angle_of_rotation,
+                        "path": lines_color_dir + real_filename,
+                        "funny": False
+                    }
                     angles.append(angle_of_rotation)
+
                     if math.isclose(angle_of_rotation, 0, abs_tol=1):
                         angle_buckets["0"] += 1
                     elif math.isclose(angle_of_rotation, 90, abs_tol=1):
                         angle_buckets["90"] += 1
                     else:
                         angle_buckets["other"] += 1
+
+                        if angle_of_rotation > 10 and angle_of_rotation < 80:
+                            image_angle_dict[real_filename]["funny"] = True
+
                     for bucket in angle_dist:
                         if angle_of_rotation >= float(bucket) and \
                            angle_of_rotation <= float(bucket) + 10:
@@ -430,22 +445,29 @@ def get_line_extraction_angles(p_search_directory):
         
     unique_angles = list(set(angles))
 
-    print("Unique angle count: {0}".format(len(unique_angles)))
-    print("Angle buckets:")
-    for angle in angle_buckets:
-        print("Angle {0}: {1}".format(angle, angle_buckets[angle]))
+    # print("Unique angle count: {0}".format(len(unique_angles)))
+    # print("Angle buckets:")
+    # for angle in angle_buckets:
+    #     print("Angle {0}: {1}".format(angle, angle_buckets[angle]))
     
-    print("Angle distribution: {0}".format(angle_dist))
+    # print("Angle distribution: {0}".format(angle_dist))
+    # print(angles)
 
-    with open(os.getcwd() + os.sep + "angle_bins.csv", "w") as output_file:
+    # with open(os.getcwd() + os.sep + "angle_bins.csv", "w") as output_file:
+    #     csv_writer = csv.writer(output_file)
+    #     csv_writer.writerow(["bucket", "count"])
+    #     for bucket in angle_dist:
+    #         csv_writer.writerow([bucket, angle_dist[bucket]])
+
+    with open(os.getcwd() + os.sep + "funny_angled_lines.csv", "w") as output_file:
         csv_writer = csv.writer(output_file)
-        csv_writer.writerow(["bucket", "count"])
-        for bucket in angle_dist:
-            csv_writer.writerow([bucket, angle_dist[bucket]])
+        csv_writer.writerow(["filepath", "angle"])
+        for filename in image_angle_dict:
+            if image_angle_dict[filename]["funny"]:
+                csv_writer.writerow([image_angle_dict[filename]["path"], image_angle_dict[filename]["angle"]])
+                
     
-    print(angles)
-
-
+    
 
 def get_unique_uuid(p_search_directory, p_search_string):
 
@@ -499,14 +521,30 @@ def wait_while_exists(p_path):
     while os.path.exists(p_path):
         pass
 
+
 def main(p_args):
 
-    if len(p_args) < 2 or len(p_args[2:]) != len(getattr(p_args[1]).__code__.co_varnames):
+    # print("len(p_args): {0}".format(len(p_args)))
+    # print("len(p_args[2:]): {0}".format(len(p_args[2:])))
+    # print("globals()[p_args[1]].__code__.co_varnames: {0}".format(globals()[p_args[1]].__code__.co_varnames))
+    # print("len(globals()[{0}].__code__.co_varnames): {1}".format(p_args[1], len(globals()[p_args[1]].__code__.co_varnames)))
+    # print("inspect.getfullargspec({0})[0]: {1}".format(
+    #         p_args[1],
+    #         inspect.getfullargspec(globals()[p_args[1]])[0]
+    #     )
+    # )
+
+    # if True:
+    #     return
+
+    # Make sure utility function name is given and the arguments it needs
+    if len(p_args) < 2 or len(p_args[2:]) != len(inspect.getfullargspec(globals()[p_args[1]])[0]):
         print("qa_utilities.py usage: ")
-        print("python[3] qa_utilities.py <utility function name> <exact args list for function or none if no args>")
+        print("python[3] qa_utilities.py <utility function name> <exact args list for function or none if it has no args>")
         return
 
-    getattr(p_args[1])(*p_args[2:])
+    # Call utility function with the given arguments
+    globals()[p_args[1]](*p_args[2:])
 
 if "__main__" == __name__:
     main(sys.argv)
