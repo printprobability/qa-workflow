@@ -17,7 +17,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from PIL import UnidentifiedImageError
-# from tqdm import tqdm
 
 # Custom
 from prepare_alignment_input_csv import *
