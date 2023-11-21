@@ -336,6 +336,84 @@ def find_errors(p_errors_to_look_for, p_directory, p_filesearch_str_w_wildcard):
             print("\t{0}".format(filename))
         print("=" * 80)
 
+def find_missing_images_le(p_book_directory, p_output_directory, p_single_or_multi):
+
+    print("p_book_directory: " + p_book_directory)
+    print("p_output_directory: " + p_output_directory)
+    print("p_single_or_multi: " + p_single_or_multi)
+
+    def find_missing_images_le_helper(p_single_book_directory):
+
+        # Returns: 
+        # 1. number of line tifs in directory if no line_df.csv else number of lines in line_df.csv,
+        # 2. Missing image filepaths
+        # 3. Whether or not line_df.csv was found in the 'lines_color' subdirectory
+
+        lines_color_dir = format_path(p_single_book_directory + "lines_color")
+        missing_image_filepaths = []
+        num_lines = 0
+
+        if not os.path.exists(lines_color_dir):
+            print("Could not find 'lines_color' directory for {0}".format(p_single_book_directory))
+            return 0, [], False
+        elif not os.path.exists(f"{lines_color_dir}line_df.csv"):
+            print("Could not find line_df.csv for {0}".format(p_single_book_directory))
+            line_tifs = [ filename for filename in get_items_in_dir(lines_color_dir, ["files"]) if filename.endswith(".tif") ]
+            return len(line_tifs), [], False
+
+        with open(f"{lines_color_dir}line_df.csv", "r") as input_file:
+            csv_reader = csv.DictReader(input_file)
+            for row in csv_reader:
+                num_lines += 1
+                real_filename = row["file_name"][0:row["file_name"].rfind("-")] + row["file_name"][row["file_name"].rfind("-") + 1:] + ".tif"
+                if not os.path.exists(lines_color_dir + real_filename):
+                    missing_image_filepaths.append(lines_color_dir + real_filename)
+        
+        return num_lines, missing_image_filepaths, True
+
+    book_dir = format_path(p_book_directory)
+    output_dir = format_path(p_output_directory)
+
+    missing_image_filepaths = []
+    book_stats = {}
+    if "multi" == p_single_or_multi:
+        for directory in get_items_in_dir(book_dir, ["directories"]):
+
+            before_count = len(missing_image_filepaths)
+            print("Looking for missing images in {0}".format(directory), flush=True)
+
+            num_lines, filepaths, found_linedf = find_missing_images_le_helper(format_path(book_dir + directory))
+            missing_image_filepaths.extend(filepaths)
+
+            print("Found {0} missing images.".format(len(missing_image_filepaths) - before_count), flush=True)
+
+            book_stats[directory] = {
+
+                "lines": num_lines,
+                "missing_lines": len(filepaths),
+                "line_df_exists": found_linedf
+            }
+    else:
+        missing_image_filepaths = find_missing_images_le_helper(book_dir)
+
+    run_uuid = get_unique_uuid(output_dir, "*.csv")
+
+    with open("{0}missing_le_images_{1}.csv".format(output_dir, run_uuid), "w") as output_file:
+        csv_writer = csv.writer(output_file)
+        csv_writer.writerow(["image_filepath"])
+        for filepath in missing_image_filepaths:
+            csv_writer.writerow([filepath])
+    with open("{0}le_stats_{1}.csv".format(output_dir, run_uuid), "w") as output_file:
+        csv_writer = csv.writer(output_file)
+        csv_writer.writerow(["book_directory","total_lines", "missing_lines", "line_df_exists"])
+        for directory in book_stats:
+            csv_writer.writerow([
+                directory,
+                book_stats[directory]["lines"],
+                book_stats[directory]["missing_lines"],
+                book_stats[directory]["line_df_exists"]
+            ])
+        
 def format_path(original_path):
     '''Make sure given path ends with system folder separator'''
     return original_path if original_path.endswith(os.sep) else original_path + os.sep
@@ -400,6 +478,8 @@ def get_line_extraction_angles(p_search_directory):
 
     search_dir = format_path(p_search_directory)
 
+    total_lines = 0
+
     for directory in get_items_in_dir(search_dir, ["directories"]):
 
         angles = []
@@ -417,6 +497,8 @@ def get_line_extraction_angles(p_search_directory):
             with open(lines_color_dir + "line_df.csv", "r") as le_file:
                 csv_reader = csv.DictReader(le_file)
                 for row in csv_reader:
+
+                    total_lines += 1
 
                     angle_of_rotation = float(ast.literal_eval(row["rect"])[2])
 
@@ -445,6 +527,8 @@ def get_line_extraction_angles(p_search_directory):
         
     unique_angles = list(set(angles))
 
+    print("Total lines: {0}".format(total_lines))
+
     # print("Unique angle count: {0}".format(len(unique_angles)))
     # print("Angle buckets:")
     # for angle in angle_buckets:
@@ -465,9 +549,6 @@ def get_line_extraction_angles(p_search_directory):
         for filename in image_angle_dict:
             if image_angle_dict[filename]["funny"]:
                 csv_writer.writerow([image_angle_dict[filename]["path"], image_angle_dict[filename]["angle"]])
-                
-    
-    
 
 def get_unique_uuid(p_search_directory, p_search_string):
 
