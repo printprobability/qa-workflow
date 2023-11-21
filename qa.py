@@ -195,16 +195,6 @@ def save_config(p_args):
 
     return success
 
-def set_environment_variables():
-
-    # 1. Save this UUID to an OS environmental variable indicating the ID of the current QA run
-    os.environ["QA_AUTOCROP_UUID"] = qa_config[RUN_UUID]
-
-    # 2. Store what commands have been requested
-    for cmd in qa_config[COMMANDS]:
-        os.environ["QA_AUTOCROP_{0}_REQ"] = cmd
-
-
 def main():
 
     # 1. Handle args given to this script
@@ -215,9 +205,6 @@ def main():
     # 2. Save args for QA run
     if not save_config(args):
         exit()
-
-    # 3. Set any necessary environmental variables
-    set_environment_variables()
 
     # 3. Run requested commands for this QA module
     run_commands(args)
