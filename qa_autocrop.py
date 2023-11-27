@@ -37,7 +37,7 @@ AUTOCROP_TYPES = [
 ]
 
 ERRORS_FILE_PREFIX = "autocrop_errors"
-MASTER_LOG_FILENAME_PREFIX = "qa_autocrop_slurm"
+MASTER_LOG_FILENAME_PREFIX = "qa_slurm"
 MERGED_RESULTS_FILENAME_PREFIX = "autocrop_all_results_merged"
 STATS_FILE_PREFIX = "autocrop_results"
 
@@ -581,7 +581,7 @@ class QA_Autocrop(QA_Module):
                 book_name, autocrop_type, self.config[RUN_UUID])
             error_lookup = {}
             if os.path.exists(error_filepath):
-                error_lookup = self.__read_error_file(error_filepath)
+                error_lookup = self.read_error_file(error_filepath, "AUTOCROP")
 
             print("FINISHED READING ERROR LOOKUP TABLE")
             print("ERROR_LOOKUP:\n{0}".format(error_lookup))
@@ -763,58 +763,6 @@ class QA_Autocrop(QA_Module):
         
         print("Exiting QA_Autocrop.__output_stats_on_book")
 
-    def __read_error_file(self, error_filepath):
-
-        print("Entering QA_Autocrop.__read_error_file")
-        
-        error_lookup = {}
-
-        print("In read_error_file")
-        print("Error filepath: {0}".format(error_filepath))
-
-        with open(error_filepath, "r") as error_file:
-            error_lines = error_file.readlines()
-
-            print("Read error lines")
-
-            begin_error = False
-            image_filename = ""
-            recording_traceback = False
-            tb_lines = []
-            for index in range(len(error_lines)):
-
-                print("Processing line: {0}".format(error_lines[index]))
-
-                if "BEGIN AUTOCROP FAILURE" in error_lines[index]:
-                    print("Found BEGIN AUTOCROP FAILURE")
-                    begin_error = True
-                    continue
-                if begin_error and "FILE:" in error_lines[index]:
-                    print("begin_error is true and found FILE")
-                    image_filename = Path(error_lines[index].split("FILE: ")[1].strip()).name
-                    print("image_filename: {0}".format(image_filename))
-                    continue
-                if begin_error and "ERROR:" in error_lines[index]:
-                    print("Found ERROR")
-                    recording_traceback = True
-                    continue
-                if recording_traceback:
-                    if "END" in error_lines[index]:
-                        print("Found error END")
-                        error_lookup[image_filename] = tb_lines.copy()
-                        print("error_lookup[{0}]:\n{1}".format(image_filename, error_lookup[image_filename]))
-                        begin_error = False
-                        image_filename = ""
-                        recording_traceback = False
-                        tb_lines = []
-                    else:
-                        print("Appending error line")
-                        tb_lines.append(error_lines[index])
-
-        print("Exiting QA_Autocrop.__read_error_file")
-        
-        return error_lookup
-    
     def wait(self):
 
         print("Entering QA_Autocrop.wait with run type: {0}".format(self.config[RUN_TYPE]))
