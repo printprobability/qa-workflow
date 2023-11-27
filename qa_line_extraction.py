@@ -5,12 +5,13 @@
 # Imports
 
 # Built-ins
+import ast
 import csv
 import glob
+import math
 import os
 import shutil
 import subprocess
-import sys
 import traceback
 from pathlib import Path
 from statistics import median, variance
@@ -42,9 +43,15 @@ LINEEXTRACTION_TYPES = [
 ]
 
 ERRORS_FILE_PREFIX = "line_extraction_errors"
-MASTER_LOG_FILENAME_PREFIX = "qa_le_slurm"
+LINEEXTRACTION_WATERSHED_METADATA_FILE = "line_df.csv"
+MASTER_LOG_FILENAME_PREFIX = "qa_slurm"
 MERGED_RESULTS_FILENAME_PREFIX = "le_all_results_merged"
 STATS_FILE_PREFIX = "line_extraction_results"
+
+# Watershed error files
+DHSEGMENT_ERROR_FILENAME = "le_dhsegment_errors_*.txt"
+WATERSHED_ERROR_FILENAME = "le_watershed_errors_*.txt"
+WATERSHED_MERGED_ERROR_FILENAME = "le_watershed_all_errors_{}.txt"
 
 # sbatch parameters
 SBATCH_MEMORY_PER_CPU = "1999mb"
@@ -62,6 +69,8 @@ class QA_LineExtraction(QA_Module):
         self.config = p_config
         self.slurm_job_results = []
 
+    # 'archive' commands
+
     def archive_logs(self):
 
         print("Entering archive_logs")
@@ -78,6 +87,8 @@ class QA_LineExtraction(QA_Module):
         
         print("Exiting archive_logs")
 
+    # 'clear' subcommands
+
     def clear_logs(self):
 
         # Clear all log files in the log folder
@@ -90,6 +101,8 @@ class QA_LineExtraction(QA_Module):
 
     def clear_results(self):
 
+        # Output of watershed line extraction
+
         if RUN_TYPE_MULTI == self.config[RUN_TYPE]:
             for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
                 full_bookpath = format_path(self.config[BOOK_DIRECTORY] + book_directory)
@@ -97,14 +110,79 @@ class QA_LineExtraction(QA_Module):
                     shutil.rmtree(full_bookpath + RESULTS_DIRECTORY, ignore_errors=True)
                     wait_while_exists(full_bookpath + RESULTS_DIRECTORY)
         elif RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-            if os.path.exists(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY):
-                shutil.rmtree(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY, ignore_errors=True)
-                wait_while_exists(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY)
+
+            # Remove 'pages' subdirectory
+            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES):
+                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES, ignore_errors=True)
+                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES)
+
+            # Remove 'pages_color' subdirectory
+            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES_COLOR):
+                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES_COLOR, ignore_errors=True)
+                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES_COLOR)
+
+            # Remove 'lines' subdirectory
+            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES):
+                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES, ignore_errors=True)
+                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES)
+
+            # Remove 'lines_color' subdirectory
+            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES_COLOR):
+                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES_COLOR, ignore_errors=True)
+                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES_COLOR)
+
+
+    # 'collate' subcommands and helpers
+
+    def collate(self):
+
+        # For now, only collate errors
+        # NOTE: This is a temporary implementation until a new line extraction method
+        # is introduced for comparison with the 'watershed' method. Now this should be run
+        # *before output_stats, so that errors can be tallied via the combined error files created
+        # by __collate_errors_on_book_watershed
+        # QA sequence with this implementation is 'clear', 'run', 'collate', 'output_stats'
+        self.collate_errors()
 
     def collate_errors(self):
 
-        pass
+        for le_type in LINEEXTRACTION_TYPES:
 
+            if LINEEXTRACTION_TYPE_WATERSHED == le_type:
+
+                if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
+                    self.__collate_errors_on_book_watershed(self.config[BOOK_DIRECTORY])
+                elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
+                    for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+                        self.__collate_errors_on_book_watershed(format_path(self.config[BOOK_DIRECTORY] + book_directory))
+                    # merge_errors_into_csv()
+
+    def __collate_errors_on_book_watershed(self, p_book_directory):
+
+        # 1. Collect error files from both the run_dhsegment run and the watershed run
+        dh_segment_error_filepath = os.path.join(p_book_directory, DIRECTORY_PAGES, DHSEGMENT_ERROR_FILENAME)
+        watershed_error_filepath = os.path.join(p_book_directory, DIRECTORY_LINES_COLOR, WATERSHED_ERROR_FILENAME)
+        error_dict = {
+
+            "dh_segment": read_error_file(dh_segment_error_filepath, "LE"),
+            "watershed": read_error_file(watershed_error_filepath, "LE")
+        }
+
+        # 2. Output them into one csv file
+        combined_error_filepath = self.config[OUTPUT_DIRECTORY] + WATERSHED_MERGED_ERROR_FILENAME.format(self.config[RUN_UUID])
+        with open(combined_error_filepath, "w") as merged_error_file:
+            csv_writer = csv.writer(merged_error_file)
+            csv_writer.writerow(["error_source", "error"])
+            for le_submodule in error_dict:
+                for error_source in error_dict[le_submodule]:
+                    for error_lines in error_dict[le_submodule][error_source]:
+                        csv_writer.writerow([
+                            error_source,
+                            "\n".join(error_lines)
+                        ])
+
+    # NOTE: collate_results and its helpers are under construction/not run until
+    # a new line extraction method is introduced for comparison
     def collate_results(self):
 
         # NOTE: Once more than one line extraction method is introduced,
@@ -112,7 +190,7 @@ class QA_LineExtraction(QA_Module):
         # will need to be adapted for QA line extraction
 
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-            # self.__collate_results_on_book(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY + os.sep)
+            self.__collate_results_on_book(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY + os.sep)
             pass
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
 
@@ -243,6 +321,8 @@ class QA_LineExtraction(QA_Module):
                     # row[line extraction rows],...
                 ])
 
+    # 'output_stats' command and helpers
+
     def output_stats(self):
 
         print("Entering QA_LineExtraction.output_stats")
@@ -260,17 +340,63 @@ class QA_LineExtraction(QA_Module):
             if RESULTS_DIRECTORY != book_name:
                 self.__output_stats_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name))
 
+        self.__output_stats_about_all_books()
+
+    def __output_stats_about_all_books(self):
+
+        # 0. Stats being tracked across all books
+        all_book_stats = {
+            le_type: {
+                "total_lines": 0,
+                "total_errors": 0,
+                "median_errors_per_book": 0,
+                # Each book also tracks its total lines and total errors
+                "books": {}
+            } for le_type in LINEEXTRACTION_TYPES
+        }
+
+        # 1. Gather stats on all books in the book directory list in the config
+        for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+
+            # For each line extraction type, go through the lines of its main output files (results, errors)
+            for le_type in LINEEXTRACTION_TYPES:
+
+                if LINEEXTRACTION_TYPE_WATERSHED == le_type:
+                    all_book_stats[book_directory] = self.__gather_stats_on_book(book_directory)
+
+                # Tally this book's stats in overall stats
+                all_book_stats["total_lines"] += all_book_stats[book_directory]["total_lines"]
+                all_book_stats["total_errors"] += all_book_stats[book_directory]["total_errors"]
+                all_book_stats["total_lines"] += all_book_stats[book_directory]["total_lines"]
+
+
+
     def __output_stats_on_book(self, p_book_directory):
 
-        book_dir = p_book_directory
-        book_name = Path(book_dir).name
-        le_type = LINEEXTRACTION_TYPE_WATERSHED
-        csv_results = { book_name: { le_type: {} } }
-        results_folder = format_path(book_dir + RESULTS_DIRECTORY)
-        lines_color_folder = format_path(book_dir + DIRECTORY_LINES_COLOR)
-        line_df_filepath = lines_color_folder + "line_df.csv"
-        pages_color_folder = book_dir + DIRECTORY_PAGES_COLOR 
+        csv_results = { le_type: {} for le_type in LINEEXTRACTION_TYPES }
+        # le_type = LINEEXTRACTION_TYPE_WATERSHED
+        lines_color_folder = format_path(p_book_directory + DIRECTORY_LINES_COLOR)
+        line_df_filepath = lines_color_folder + LINEEXTRACTION_WATERSHED_METADATA_FILE
+        pages_color_folder = p_book_directory + DIRECTORY_PAGES_COLOR
+        results_folder = format_path(p_book_directory + RESULTS_DIRECTORY)
 
+        # For each line extraction method:
+        # 1. Gather and output stats for lines
+        # 2. Gather and output stats for book
+
+        for le_type in LINEEXTRACTION_TYPES:
+
+            if LINEEXTRACTION_TYPE_WATERSHED == le_type:
+
+                # 1. Gather and output stats for lines for the watershed line extraction method
+                lines_stats_filepath = self.__output_stats_for_lines_watershed(p_book_directory)
+
+                # 2. Gather and output stats for this book given the results of the watershed line extraction method
+                if lines_stats_filepath:
+                    self.__output_stats_for_book_watershed(p_book_directory, lines_stats_filepath)
+                else:
+                    __output_error("ERROR: Line stats file could not be created.")
+        
         # 0. Make a folder for the new output stats file
         makedirs(results_folder)
 
@@ -281,8 +407,8 @@ class QA_LineExtraction(QA_Module):
         #     print("No stats csv file for this cropping run will be output.")
         #     return    
 
-        print("Book dir: {0}".format(book_dir))
-        print("Book name: {0}".format(book_name))
+        print("Book dir: {0}".format(p_book_directory))
+        print("Book name: {0}".format(Path(p_book_directory).name))
 
         # 0. Potential error file for this cropping run for this book
         # error_filepath = "{0}{1}error_{2}_{3}_{4}.txt".format(results_folder, os.sep,
@@ -298,7 +424,7 @@ class QA_LineExtraction(QA_Module):
         csv_results[book_name][le_type]["images"] = {}
 
         if not os.path.exists(line_df_filepath):
-            print("ERROR: Could not find line_df.csv for {0}".format(book_name))
+            print("ERROR: Could not find {0} for {1}".format(LINEEXTRACTION_WATERSHED_METADATA_FILE, Path(p_book_directory).name))
             return
 
         with open(line_df_filepath, "r") as line_df_file:
@@ -313,10 +439,33 @@ class QA_LineExtraction(QA_Module):
 
                 if image_name not in csv_results[book_name][le_type]["images"]:
                     csv_results[book_name][le_type]["images"][image_name] = { "lines": {} }
-                csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
-                    "width": line_row["width"],
-                    "height": line_row["height"]
-                }
+
+                try:
+                    angle_of_rotation = float(ast.literal_eval(line_row["rect"])[2])
+                except:
+                    print("ERROR: Problem reading angle of rotation for line: {0}".format(line_row["file_name"]))
+                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                        "width": line_row["width"],
+                        "height": line_row["height"]
+                    }
+                    continue
+
+                if math.isclose(angle_of_rotation, 90, abs_tol=1):
+                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                        "width": line_row["height"],
+                        "height": line_row["width"]
+                    }
+                elif math.isclose(angle_of_rotation, 00, abs_tol=1):
+                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                        "width": line_row["width"],
+                        "height": line_row["height"]
+                    }
+                else:
+                    print("ERROR: Angle of rotation, dimension detection error: {0}".format(angle_of_rotation))
+                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                        "width": line_row["width"],
+                        "height": line_row["height"]
+                    }                    
 
             # print("CSV RESULTS SO FAR")
             # print(csv_results)
@@ -412,17 +561,25 @@ class QA_LineExtraction(QA_Module):
                                             ""])
                                             # "'" + csv_results[book_name][le_type]["images"][image_name]["error"] + "'"])
     
+    def __gather_stats_on_book_watershed(self, p_book_directory):
+
+        pass
+
+    # 'run' command and helpers
+
     def run(self):
 
         self.slurm_job_results = []
+
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
             self.slurm_job_results = self.__run_on_book(self.config[BOOK_DIRECTORY])
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
             self.slurm_job_results = self.__run_on_all_books()
 
-        print("Slurm Job Results")
+        print_debug_header("Slurm Job Results")
         for index in range(len(self.slurm_job_results)):
             print("Result {0}: {1}".format(index, self.slurm_job_results[index]))
+        print_debug_header()
 
     def __run_on_all_books(self):
 
@@ -434,52 +591,35 @@ class QA_LineExtraction(QA_Module):
 
         print("In __run_on_book")
 
-        # 1. Start a process to test line extraction methods on this book
         book_name = Path(p_book_directory).name
-
-        # 2. Path for error output will be in the top level results directory
-        error_path = "{0}results{1}".format(format_path(str(p_book_directory)), os.sep)
-
-        # 3. Spin up a slurm job to extract lines with each possible line extraction type on this book
-        slurm_results = []
-        le_job_ids = []
+        slurm_results = []       
+        
+        # 1. Start up slurm jobs to test line extraction methods on this book
         for le_type in LINEEXTRACTION_TYPES:
-
-            # A. Determine output path for line extraction files and create it if it does not exist
-            output_path = "{0}results{1}{2}{1}".format(format_path(str(p_book_directory)), os.sep, le_type)
-            if not os.path.exists(output_path):
-                os.makedirs(output_path)             
         
             print("Creating slurm job for QA of line extraction {0} with line extraction type {1}".format(book_name, le_type))
 
-            # B. Run line extraction on the book with the given arguments
+            # A. Run line extraction on the book with the given arguments
 
-            # I. Save the job ID for outputting stats on line extraction runs afterward
-            job_id = "{0}_{1}_{2}".format(book_name, le_type, self.config[RUN_UUID])
-            le_job_ids.append(job_id)            
-
-            # II. sbatch arguments
+            # I. sbatch arguments
             sbatch_directives = {
 
                 "-c": SBATCH_NUMBER_CPUS,
-                "-J": job_id,
                 "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
                 "-o": "{0}slurm-{1}_{2}_{3}.out".format(self.config[OUTPUT_DIRECTORY], book_name, le_type, self.config[RUN_UUID]),
                 "-p": SBATCH_PARTITION,                
                 "-t": SBATCH_TIME
             }
 
-            # III. Build the sbatch call
+            # II. Build the sbatch call
             subprocess_cmd = "sbatch"
             for arg in sbatch_directives:
                 subprocess_cmd += " {0} {1}".format(arg, sbatch_directives[arg])
-            subprocess_cmd += " {0}{1}qa_line_extraction_final.sh {2} {3} {4}".format(os.getcwd(), os.sep, p_book_directory, self.config[OUTPUT_DIRECTORY], self.config[RUN_UUID])
+            subprocess_cmd += " {0}{1}qa_line_extraction_final.sh {2} {3} {4}".format(
+                os.getcwd(), os.sep,
+                le_type, p_book_directory, self.config[RUN_UUID])
 
-            # print("subprocess.run({0}, capture_output=True, text=True, shell=True)".format(subprocess_cmd))
-            # slurm_results.append(subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True))
-
-            # V. Run sbatch and save results
-            # slurm_results.append(subprocess.run(subprocess_cmd, capture_output=True, text=True, shell=True))
+            # III. Run sbatch and save results
             slurm_results.append(
                 subprocess.Popen(
                     subprocess_cmd,
@@ -489,22 +629,6 @@ class QA_LineExtraction(QA_Module):
                     text=True
                 )
             )            
-        
-        # 4. Build and run a dependent sbatch call for the output of stats on these line extraction runs for this book
-        # sbatch_output_stats = "sbatch"
-        # sbatch_output_stats += " --dependency=afterok:{0}".format(",".join(le_job_ids))
-        # sbatch_output_stats += " qa_autocrop_outputstats.sh"
-        # # sbatch_output_stats += " --wrap=\"python3 qa.py line_extraction --single_book --output_stats --book_directory {0} --run_uuid {1}\"".format(book_name, self.config[RUN_UUID])
-        # slurm_results.append(
-        #     subprocess.Popen(
-        #         sbatch_output_stats,
-        #         shell=True,
-        #         stderr=subprocess.PIPE,
-        #         stdout=subprocess.PIPE,
-        #         text=True
-        #     )
-        # )
-        # print("subprocess.Popen({0} shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)".format(sbatch_output_stats))   
         
         return slurm_results
 
@@ -516,82 +640,69 @@ def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("line_extraction_type", help="Type of line extraction to be run. Current options: [watershed]")
     parser.add_argument("book_directory", help="Directory containing the images of one book copied using the create_autocrop_test_dir.py script")
-    parser.add_argument("output_directory", help="Output directory where logs for line extraction QA will go")
     parser.add_argument("run_uuid", help="Unique ID for this autocrop run/batch of autocrop runs")
     
-    # Optional args here
-    # parser.add_argument("--threshold_by_inside", help="Computes binary threshold off inner chunk of page.", action="store_true")
-
     args = parser.parse_args()
 
     return args
 
-def read_error_file(error_filepath):
+# def read_error_file(error_filepath):
     
-    error_lookup = {}
+#     error_lookup = {}
 
-    print("In read_error_file")
-    print("Error filepath: {0}".format(error_filepath))
+#     print("In read_error_file")
+#     print("Error filepath: {0}".format(error_filepath))
 
-    with open(error_filepath, "r") as error_file:
-        error_lines = error_file.readlines()
+#     with open(error_filepath, "r") as error_file:
+#         error_lines = error_file.readlines()
 
-        print("Read error lines")
+#         print("Read error lines")
 
-        begin_error = False
-        image_filename = ""
-        recording_traceback = False
-        tb_lines = []
-        for index in range(len(error_lines)):
+#         begin_error = False
+#         image_filename = ""
+#         recording_traceback = False
+#         tb_lines = []
+#         for index in range(len(error_lines)):
 
-            print("Processing line: {0}".format(error_lines[index]))
+#             print("Processing line: {0}".format(error_lines[index]))
 
-            if "BEGIN LINE EXTRACTION FAILURE" in error_lines[index]:
-                print("Found BEGIN LINE EXTRACTION FAILURE")
-                begin_error = True
-                continue
-            if begin_error and "FILE:" in error_lines[index]:
-                print("begin_error is true and found FILE")
-                image_filename = Path(error_lines[index].split("FILE: ")[1].strip()).name
-                print("image_filename: {0}".format(image_filename))
-                continue
-            if begin_error and "ERROR:" in error_lines[index]:
-                print("Found ERROR")
-                recording_traceback = True
-                continue
-            if recording_traceback:
-                if "END" in error_lines[index]:
-                    print("Found error END")
-                    error_lookup[image_filename] = tb_lines.copy()
-                    print("error_lookup[{0}]:\n{1}".format(image_filename, error_lookup[image_filename]))
-                    begin_error = False
-                    image_filename = ""
-                    recording_traceback = False
-                    tb_lines = []
-                else:
-                    print("Appending error line")
-                    tb_lines.append(error_lines[index])
+#             if "BEGIN LINE EXTRACTION FAILURE" in error_lines[index]:
+#                 print("Found BEGIN LINE EXTRACTION FAILURE")
+#                 begin_error = True
+#                 continue
+#             if begin_error and "FILE:" in error_lines[index]:
+#                 print("begin_error is true and found FILE")
+#                 image_filename = Path(error_lines[index].split("FILE: ")[1].strip()).name
+#                 print("image_filename: {0}".format(image_filename))
+#                 continue
+#             if begin_error and "ERROR:" in error_lines[index]:
+#                 print("Found ERROR")
+#                 recording_traceback = True
+#                 continue
+#             if recording_traceback:
+#                 if "END" in error_lines[index]:
+#                     print("Found error END")
+#                     error_lookup[image_filename] = tb_lines.copy()
+#                     print("error_lookup[{0}]:\n{1}".format(image_filename, error_lookup[image_filename]))
+#                     begin_error = False
+#                     image_filename = ""
+#                     recording_traceback = False
+#                     tb_lines = []
+#                 else:
+#                     print("Appending error line")
+#                     tb_lines.append(error_lines[index])
     
-    return error_lookup
+#     return error_lookup
 
-def run_line_extraction(args):
+def run_line_extraction_watershed(args):
 
     book_directory = format_path(args.book_directory)
-    output_directory = format_path(args.output_directory)
     book_name = Path(book_directory).name
-    le_type = LINEEXTRACTION_TYPE_WATERSHED
-
-    # 0. Determine output path for cropped images and create it if it does not exist
-    output_path = format_path(book_directory + RESULTS_DIRECTORY + le_type)
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
-
-    # 0. Path for error output will be in the top level results directory
-    error_path = format_path(book_directory + RESULTS_DIRECTORY)
 
     # 1. Prepare directory for line extraction and its QA
-    print("Preparing directory {0} for line extraction QA".format(book_name))
+    print(f"Preparing directory {book_name} for line extraction QA...")
     
     # A. Make subdirectories that will be used by the line extraction scripts
     print("Making necessary subdirectories...")
@@ -617,10 +728,12 @@ def run_line_extraction(args):
     os.chdir(book_directory + DIRECTORY_PAGES)
 
     # B. Run run_dhsegment_on_book.py (recently copied here in 'pages')
-    print("Running run_dhsegment_on_book.py for {0}...".format(book_name))
+    print(f"Running run_dhsegment_on_book.py for {book_name}...")
     subprocess_args = [
         "python3",
-        Path(LINEEXTRACTION_SCRIPT_LOCATION_DHSEGMENT).name
+        Path(LINEEXTRACTION_SCRIPT_LOCATION_DHSEGMENT).name,
+        "--test",
+        "--run_uuid", args.run_uuid
     ]
     print("Running command: {0}".format(" ".join(subprocess_args)))
     subprocess.run(subprocess_args)    
@@ -629,7 +742,7 @@ def run_line_extraction(args):
     os.chdir(book_directory + DIRECTORY_LINES)
 
     # D. Run watershed_line_extraction.py
-    print("Running watershed_line_extraction.py on pages of {0}...".format(book_name))
+    print(f"Running watershed_line_extraction.py on pages of {book_name}...")
     subprocess_args = [
         "python3",
         "-u",
@@ -643,7 +756,9 @@ def run_line_extraction(args):
         "--min_width", "200",
         "--extension", ".tif",
         "--line_height_quantile", "0.85",
-        "--transformations_csv", "..{0}{1}{0}transformations.csv".format(os.sep, DIRECTORY_LINES_COLOR)
+        "--transformations_csv", "..{0}{1}{0}transformations.csv".format(os.sep, DIRECTORY_LINES_COLOR),
+        "--test",
+        "--run_uuid", args.run_uuid
     ]
     print("Running command: {0}".format(" ".join(subprocess_args)))
     subprocess.run(subprocess_args)       
@@ -656,4 +771,6 @@ def run_line_extraction(args):
 if __name__ == "__main__":
 
     args = parse_args()
-    run_line_extraction(args)
+
+    if LINEEXTRACTION_TYPE_WATERSHED == args.line_extraction_type:
+        run_line_extraction_watershed(args)
