@@ -29,7 +29,10 @@ conda init
 conda activate /ocean/projects/hum160002p/nikolaiv/miniconda3/envs/dh_segment
 
 # 2. Run QA for line extraction over this book directory
-python3 -u qa_line_extraction.py $1 $2 $3
+line_extraction_type=$1
+book_directory=$2
+run_uuid=$3
+python3 -u qa_line_extraction.py $line_extraction_type $book_directory $run_uuid
 
 # Show QA line extraction end time
 date
