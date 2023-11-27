@@ -307,7 +307,7 @@ def copy_data_directory(p_src_directory, p_dest_directory):
             os.makedirs(new_dir)
         for src_filepath in glob.glob(p_src_directory + dir + os.sep + "*.tif"):
             filename = Path(src_filepath).name
-            shutil.copyfile(src_filepath, new_dir + filename)    
+            shutil.copyfile(src_filepath, new_dir + filename)
 
 def directory_has_files_of_type(p_book_directory, p_file_tag):
 
@@ -571,6 +571,75 @@ def makedirs(p_location):
     if os.path.exists(p_location):
         shutil.rmtree(p_location, ignore_errors=True)
     os.makedirs(p_location)
+
+def print_debug_header(p_header="", p_header_character="=", p_header_length=80):
+
+    print("{0} {1}".format(p_header, p_header_character * (p_header_length - len(p_header) - 1)))
+
+def read_error_file(p_error_filepath_with_wildcard, p_module_name):
+
+    print("Entering read_error_file")
+    print("p_error_filepath_with_wildcard: " + p_error_filepath_with_wildcard)
+    print("p_module_name: " + p_module_name)
+    
+    error_lookup = {}
+    error_filepath = ""
+    
+    # 0. Use first file that matches the given filepath with wildcard
+    for filepath in glob.glob(p_error_filepath_with_wildcard):
+        error_filepath = filepath
+        break
+    if "" == error_filepath:
+        return {}
+    
+    print("Error filepath: {0}".format(error_filepath))
+
+    # 1. Store errors from this file keyed by filename listed in each error
+    with open(error_filepath, "r") as error_file:
+        error_lines = error_file.readlines()
+
+        print("Read error lines")
+
+        begin_error = False
+        image_filename = ""
+        recording_traceback = False
+        tb_lines = []
+        for index in range(len(error_lines)):
+
+            # print("Processing line: {0}".format(error_lines[index]))
+
+            if f"BEGIN {p_module_name} FAILURE" in error_lines[index]:
+                # print("Found BEGIN AUTOCROP FAILURE")
+                begin_error = True
+                continue
+            if begin_error and "FILE:" in error_lines[index]:
+                # print("begin_error is true and found FILE")
+                image_filename = Path(error_lines[index].split("FILE: ")[1].strip()).name
+                # print("image_filename: {0}".format(image_filename))
+
+                if image_filename not in error_lookup:
+                    error_lookup[image_filename] = []
+                continue
+            if begin_error and "ERROR:" in error_lines[index]:
+                # print("Found ERROR")
+                recording_traceback = True
+                continue
+            if recording_traceback:
+                if "END" in error_lines[index]:
+                    # print("Found error END")
+                    error_lookup[image_filename].append(tb_lines.copy())
+                    # print("error_lookup[{0}]:\n{1}".format(image_filename, error_lookup[image_filename]))
+                    begin_error = False
+                    image_filename = ""
+                    recording_traceback = False
+                    tb_lines = []
+                else:
+                    # print("Appending error line")
+                    tb_lines.append("\"" + error_lines[index].strip() + "\"")
+
+    print("Exiting read_error_file")
+    
+    return error_lookup
 
 def str_to_class(module_name, class_name):
 
