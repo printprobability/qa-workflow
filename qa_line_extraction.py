@@ -42,16 +42,20 @@ LINEEXTRACTION_TYPES = [
     LINEEXTRACTION_TYPE_WATERSHED
 ]
 
-ERRORS_FILE_PREFIX = "line_extraction_errors"
-LINEEXTRACTION_WATERSHED_METADATA_FILE = "line_df.csv"
-MASTER_LOG_FILENAME_PREFIX = "qa_slurm"
-MERGED_RESULTS_FILENAME_PREFIX = "le_all_results_merged"
-STATS_FILE_PREFIX = "line_extraction_results"
+# Watershed files
 
-# Watershed error files
+# Line extraction output
+LINEEXTRACTION_WATERSHED_METADATA_FILE = "line_df.csv"
 DHSEGMENT_ERROR_FILENAME = "le_dhsegment_errors_*.txt"
 WATERSHED_ERROR_FILENAME = "le_watershed_errors_*.txt"
 WATERSHED_MERGED_ERROR_FILENAME = "le_watershed_all_errors_{}.txt"
+
+# QA output
+MASTER_LOG_FILENAME_PREFIX = "qa_slurm"
+QA_OUTPUT_PREFIX = "le_watershed_"
+RESULTS_FILENAME_PREFIX = QA_OUTPUT_PREFIX + "results_"
+ERRORS_FILENAME_PREFIX = QA_OUTPUT_PREFIX + "errors_"
+
 
 # sbatch parameters
 SBATCH_MEMORY_PER_CPU = "1999mb"
@@ -168,8 +172,13 @@ class QA_LineExtraction(QA_Module):
             "watershed": read_error_file(watershed_error_filepath, "LE")
         }
 
-        # 2. Output them into one csv file
-        combined_error_filepath = self.config[OUTPUT_DIRECTORY] + WATERSHED_MERGED_ERROR_FILENAME.format(self.config[RUN_UUID])
+        # 2. Create the results directory in the book directory
+        results_directory = self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY + os.sep
+        if not os.path.exists(results_directory):
+            os.makedirs(results_directory)
+
+        # 3. Output them into one csv file
+        combined_error_filepath = results_directory + WATERSHED_MERGED_ERROR_FILENAME.format(self.config[RUN_UUID])
         with open(combined_error_filepath, "w") as merged_error_file:
             csv_writer = csv.writer(merged_error_file)
             csv_writer.writerow(["error_source", "error"])
@@ -328,103 +337,113 @@ class QA_LineExtraction(QA_Module):
         print("Entering QA_LineExtraction.output_stats")
 
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-            self.__output_stats_on_book(self.config[BOOK_DIRECTORY])
+
+            booklevel_stats = {}
+            booklevel_stats[Path(self.config[BOOK_DIRECTORY]).name] = self.__output_stats_on_book(self.config[BOOK_DIRECTORY])
+            self.__output_stats_booklevel(booklevel_stats)
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
+
             self.__output_stats_on_all_books()
 
         print("Exiting QA_LineExtraction.output_stats")
 
     def __output_stats_on_all_books(self):
-                
+        
+        # 1. Output a results file per book and store booklevel stats that are returned
+        booklevel_stats = {}
         for book_name in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
             if RESULTS_DIRECTORY != book_name:
-                self.__output_stats_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name))
+                booklevel_stats[book_name] = self.__output_stats_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name))
 
-        self.__output_stats_about_all_books()
+        # 2. Output one file containing booklevel stats of for whole line extraction run
+        self.__output_stats_booklevel(booklevel_stats)
 
-    def __output_stats_about_all_books(self):
+    def __output_stats_booklevel(self, p_booklevel_stats):
 
-        # 0. Stats being tracked across all books
-        all_book_stats = {
-            le_type: {
-                "total_lines": 0,
-                "total_errors": 0,
-                "median_errors_per_book": 0,
-                # Each book also tracks its total lines and total errors
-                "books": {}
-            } for le_type in LINEEXTRACTION_TYPES
-        }
+        with open(f"{RESULTS_FILENAME_PREFIX}all_{self.config[RUN_UUID]}.csv", "w") as output_file:
 
-        # 1. Gather stats on all books in the book directory list in the config
-        for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+            csv_writer = csv.writer(output_file)
 
-            # For each line extraction type, go through the lines of its main output files (results, errors)
-            for le_type in LINEEXTRACTION_TYPES:
+            csv_writer.writerow([
+                "book_name",
+                "pages",
+                "lines",
+                "errors",
+                "unique_errors",
+                "median_page_width",
+                "median_page_height",
+                "median_page_area",
+                "median_all_lines_area",
+                "median_line_height_median",
+                "median_variance_line_height"            
+            ])
 
-                if LINEEXTRACTION_TYPE_WATERSHED == le_type:
-                    all_book_stats[book_directory] = self.__gather_stats_on_book(book_directory)
+            for book_name in p_booklevel_stats:
 
-                # Tally this book's stats in overall stats
-                all_book_stats["total_lines"] += all_book_stats[book_directory]["total_lines"]
-                all_book_stats["total_errors"] += all_book_stats[book_directory]["total_errors"]
-                all_book_stats["total_lines"] += all_book_stats[book_directory]["total_lines"]
+                csv_writer.writerow([
 
-
+                    book_name,
+                    p_booklevel_stats["total_pages"],
+                    p_booklevel_stats["total_lines"],
+                    p_booklevel_stats["total_errors"],
+                    p_booklevel_stats["total_unique_errors"],
+                    p_booklevel_stats["median_image_width"],
+                    p_booklevel_stats["median_image_height"],
+                    p_booklevel_stats["median_image_area"],
+                    p_booklevel_stats["median_area_all_lines"],
+                    p_booklevel_stats["median_line_height_median"],
+                    p_booklevel_stats["median_variance_line_height"]
+                ])
 
     def __output_stats_on_book(self, p_book_directory):
 
         csv_results = { le_type: {} for le_type in LINEEXTRACTION_TYPES }
-        # le_type = LINEEXTRACTION_TYPE_WATERSHED
-        lines_color_folder = format_path(p_book_directory + DIRECTORY_LINES_COLOR)
-        line_df_filepath = lines_color_folder + LINEEXTRACTION_WATERSHED_METADATA_FILE
-        pages_color_folder = p_book_directory + DIRECTORY_PAGES_COLOR
-        results_folder = format_path(p_book_directory + RESULTS_DIRECTORY)
-
-        # For each line extraction method:
-        # 1. Gather and output stats for lines
-        # 2. Gather and output stats for book
 
         for le_type in LINEEXTRACTION_TYPES:
 
             if LINEEXTRACTION_TYPE_WATERSHED == le_type:
 
                 # 1. Gather and output stats for lines for the watershed line extraction method
-                lines_stats_filepath = self.__output_stats_for_lines_watershed(p_book_directory)
+                csv_results[le_type]["page"] = self.__output_stats_on_book_watershed(p_book_directory)
 
-                # 2. Gather and output stats for this book given the results of the watershed line extraction method
-                if lines_stats_filepath:
-                    self.__output_stats_for_book_watershed(p_book_directory, lines_stats_filepath)
-                else:
-                    __output_error("ERROR: Line stats file could not be created.")
-        
-        # 0. Make a folder for the new output stats file
-        makedirs(results_folder)
+                # 2. Tally book stats for potential use outside of function
+                csv_results[le_type]["book"] = self.__tally_booklevel_stats(p_book_directory, csv_results[le_type]["page"])
 
-        # Check to make sure that the cropping run produced a directory of images
-        # le_type_subfolder = results_folder + le_type
-        # if not os.path.exists(le_type_subfolder):
-        #     print("Cropping for {0} using method '{1}' did not produce any images.".format(book_name, autocrop_type))
-        #     print("No stats csv file for this cropping run will be output.")
-        #     return    
+
+        # 3. Return just book level stats for each line extraction type
+        return { le_type: csv_results[le_type]["book"] for le_type in csv_results }
+
+    def __output_stats_on_book_watershed(self, p_book_directory):
 
         print("Book dir: {0}".format(p_book_directory))
         print("Book name: {0}".format(Path(p_book_directory).name))
 
-        # 0. Potential error file for this cropping run for this book
-        # error_filepath = "{0}{1}error_{2}_{3}_{4}.txt".format(results_folder, os.sep,
-        #     book_name, le_type, self.config[RUN_UUID])
-        # error_lookup = {}
-        # if os.path.exists(error_filepath):
-        #     error_lookup = read_error_file(error_filepath)
-        # print("FINISHED READING ERROR LOOKUP TABLE")
-        # print("ERROR_LOOKUP:\n{0}".format(error_lookup))
+        csv_results = { "images": {} }
+        lines_color_folder = format_path(p_book_directory + DIRECTORY_LINES_COLOR)
+        line_df_filepath = lines_color_folder + LINEEXTRACTION_WATERSHED_METADATA_FILE
+        pages_color_folder = p_book_directory + DIRECTORY_PAGES_COLOR
+        results_folder = format_path(p_book_directory + RESULTS_DIRECTORY)
+        
+        # 0. Make a folder for the new output stats file
+        if not os.path.exists(results_folder):
+            os.makedirs(results_folder)
 
-        # 1. Determine info about the lines extracted for the book pages
+        # 1. Potential error file for this line extraction run for this book
+        error_lookup = {}
+        error_filepath = ""
+        for filepath in glob.glob(results_folder + WATERSHED_MERGED_ERROR_FILENAME.replace("{}", "*")):
+            error_filepath = filepath
+            break
+        if error_filepath:
+            with open(error_filepath, "r") as merged_error_file:
+                csv_reader = csv.DictReader(merged_error_file)
+                for row in csv_reader:
+                    error_lookup[row["error_source"]] = row["error"]
 
-        csv_results[book_name][le_type]["images"] = {}
+        # 2. Determine info about the lines extracted for the book pages
 
         if not os.path.exists(line_df_filepath):
-            print("ERROR: Could not find {0} for {1}".format(LINEEXTRACTION_WATERSHED_METADATA_FILE, Path(p_book_directory).name))
+            print(f"ERROR: Could not find {LINEEXTRACTION_WATERSHED_METADATA_FILE} for {Path(p_book_directory).name}")
             return
 
         with open(line_df_filepath, "r") as line_df_file:
@@ -437,58 +456,65 @@ class QA_LineExtraction(QA_Module):
                 image_name = file_name_parts[0]
                 line_number = file_name_parts[1]
 
-                if image_name not in csv_results[book_name][le_type]["images"]:
-                    csv_results[book_name][le_type]["images"][image_name] = { "lines": {} }
+                if image_name not in csv_results["images"]:
+                    csv_results["images"][image_name] = { "lines": {} }
 
+                # A. Save angle of rotation, width, and height
                 try:
                     angle_of_rotation = float(ast.literal_eval(line_row["rect"])[2])
                 except:
                     print("ERROR: Problem reading angle of rotation for line: {0}".format(line_row["file_name"]))
-                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                    csv_results["images"][image_name]["lines"][line_number] = {
+                        "angle": "N/A",
                         "width": line_row["width"],
                         "height": line_row["height"]
                     }
                     continue
 
                 if math.isclose(angle_of_rotation, 90, abs_tol=1):
-                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                    csv_results["images"][image_name]["lines"][line_number] = {
+                        "angle": angle_of_rotation,
                         "width": line_row["height"],
                         "height": line_row["width"]
                     }
                 elif math.isclose(angle_of_rotation, 00, abs_tol=1):
-                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                    csv_results["images"][image_name]["lines"][line_number] = {
+                        "angle": angle_of_rotation,
                         "width": line_row["width"],
                         "height": line_row["height"]
                     }
                 else:
                     print("ERROR: Angle of rotation, dimension detection error: {0}".format(angle_of_rotation))
-                    csv_results[book_name][le_type]["images"][image_name]["lines"][line_number] = {
+                    csv_results["images"][image_name]["lines"][line_number] = {
+                        "angle": angle_of_rotation,
                         "width": line_row["width"],
                         "height": line_row["height"]
-                    }                    
+                    }
 
-            # print("CSV RESULTS SO FAR")
-            # print(csv_results)
+                # B. Save any errors from error lookup for this line
+                csv_results["images"][image_name]["lines"][line_number]["error(s)"] = "N/A"
+                if line_row["file_name"] in error_lookup:
+                    csv_results["images"][image_name]["lines"][line_number]["error(s)"] = error_lookup[line_row["file_name"]]
             
             # B. Calculate line metrics for page
-            for image_name in csv_results[book_name][le_type]["images"]:
+            for image_name in csv_results["images"]:
 
                 # I. Number of lines on page
-                csv_results[book_name][le_type]["images"][image_name]["num_lines"] = len(csv_results[book_name][le_type]["images"][image_name]["lines"].keys())
+                csv_results["images"][image_name]["num_lines"] = len(csv_results["images"][image_name]["lines"].keys())
 
                 # II. Median height of lines on page
-                csv_results[book_name][le_type]["images"][image_name]["median_line_height"] = median([
-                    float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["height"]) \
-                        for line_number in csv_results[book_name][le_type]["images"][image_name]["lines"]
+                csv_results["images"][image_name]["median_line_height"] = median([
+                    float(csv_results["images"][image_name]["lines"][line_number]["height"]) \
+                        for line_number in csv_results["images"][image_name]["lines"]
                 ])
 
                 # III. Variance of line height on page
-                if len(csv_results[book_name][le_type]["images"][image_name]["lines"].keys()) < 2:
-                    csv_results[book_name][le_type]["images"][image_name]["variance_line_height"] = "0"
+                if len(csv_results["images"][image_name]["lines"].keys()) < 2:
+                    csv_results["images"][image_name]["variance_line_height"] = "0"
                 else:
-                    csv_results[book_name][le_type]["images"][image_name]["variance_line_height"] = variance([
-                        float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["height"]) \
-                            for line_number in csv_results[book_name][le_type]["images"][image_name]["lines"]
+                    csv_results["images"][image_name]["variance_line_height"] = variance([
+                        float(csv_results["images"][image_name]["lines"][line_number]["height"]) \
+                            for line_number in csv_results["images"][image_name]["lines"]
                     ])
 
                 # IV. Page dimensions
@@ -498,72 +524,120 @@ class QA_LineExtraction(QA_Module):
                     # error_lookup[Path(image_filepath).name] = str(traceback.format_exc())
                     print(str(traceback.format_exc()))
                     continue
-                csv_results[book_name][le_type]["images"][image_name]["image_width"] = img.size[0]
-                csv_results[book_name][le_type]["images"][image_name]["image_height"] = img.size[1]
-                csv_results[book_name][le_type]["images"][image_name]["image_area"]  = img.size[0] * img.size[1]
+                csv_results["images"][image_name]["image_width"] = img.size[0]
+                csv_results["images"][image_name]["image_height"] = img.size[1]
+                csv_results["images"][image_name]["image_area"]  = img.size[0] * img.size[1]
 
                 # V. Area of page that is lines
-                csv_results[book_name][le_type]["images"][image_name]["area_all_lines"] = sum([
-                    (float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["width"]) * \
-                    float(csv_results[book_name][le_type]["images"][image_name]["lines"][line_number]["height"])) \
-                        for line_number in csv_results[book_name][le_type]["images"][image_name]["lines"]
+                csv_results["images"][image_name]["area_all_lines"] = sum([
+                    (float(csv_results["images"][image_name]["lines"][line_number]["width"]) * \
+                    float(csv_results["images"][image_name]["lines"][line_number]["height"])) \
+                        for line_number in csv_results["images"][image_name]["lines"]
                 ])
-
-        # 2. Add in errored images with their errors
-        # for image_name in error_lookup:
-        #     print("Adding errored image {0} to csv_results with error {1}".format(image_name, error_lookup[image_name]))
-        #     csv_results[book_name][autocrop_type]["images"][image_name] = {}
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["image_width"] = "N/A"
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["image_height"] = "N/A"
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["min_pct_dimension_difference"] = "N/A"
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["image_area"] = "N/A"
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["area_diff_from_original"] = "N/A"
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["percent_area_diff_from_original"] = "N/A"
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["frobenius_norm_from_original"] = "N/A"
-        #     csv_results[book_name][autocrop_type]["images"][image_name]["error"] = traceback_to_str(error_lookup[image_name])
 
         # 3. Output a csv file of these stats in the autocrop result folder
-        for book_name in csv_results:
 
-            stats_filepath = results_folder + "{0}_{1}_{2}.csv".format(STATS_FILE_PREFIX, le_type, self.config[RUN_UUID])
+        stats_filepath = results_folder + "{0}_{1}_{2}.csv".format(RESULTS_FILENAME_PREFIX, Path(p_book_directory).name, self.config[RUN_UUID])
 
-            with open(stats_filepath, "w") as output_file:
+        with open(stats_filepath, "w") as output_file:
 
-                csv_writer = csv.writer(output_file)
+            csv_writer = csv.writer(output_file)
+
+            csv_writer.writerow([
+                "image_name",
+                "image_width",
+                "image_height",                    
+                "image_area",
+                "area_all_lines",
+                "num_lines",
+                "variance_line_height",
+                "median_line_height"
+            ])
+
+            for image_name in csv_results["images"]:
 
                 csv_writer.writerow([
-                    "image_name",
-                    "line_extraction_type",
-                    "image_width",
-                    "image_height",                    
-                    "image_area",
-                    "area_all_lines",
-                    "num_lines",
-                    "variance_line_height",
-                    "median_line_height",
-                    "error"
+                    image_name,
+                    csv_results["images"][image_name]["image_width"],
+                    csv_results["images"][image_name]["image_height"],
+                    csv_results["images"][image_name]["image_area"],
+                    csv_results["images"][image_name]["area_all_lines"],
+                    csv_results["images"][image_name]["num_lines"],
+                    csv_results["images"][image_name]["variance_line_height"],
+                    csv_results["images"][image_name]["median_line_height"]
                 ])
+        
+        return csv_results
 
-                for le_type in csv_results[book_name]:
+    def __tally_booklevel_stats(p_book_directory, p_pagelevel_stats):
+        
+        # 1. Tally page level data for book
+        areas_all_lines = []
+        image_areas = []
+        image_heights = []
+        image_widths = []
+        line_counts = []
+        line_height_medians = []
+        line_height_variances = []
 
-                    for image_name in csv_results[book_name][le_type]["images"]:
+        for image_name in p_pagelevel_stats["images"]:
 
-                        csv_writer.writerow([
-                                            image_name,
-                                            le_type,
-                                            csv_results[book_name][le_type]["images"][image_name]["image_width"],
-                                            csv_results[book_name][le_type]["images"][image_name]["image_height"],
-                                            csv_results[book_name][le_type]["images"][image_name]["image_area"],
-                                            csv_results[book_name][le_type]["images"][image_name]["area_all_lines"],
-                                            csv_results[book_name][le_type]["images"][image_name]["num_lines"],
-                                            csv_results[book_name][le_type]["images"][image_name]["variance_line_height"],
-                                            csv_results[book_name][le_type]["images"][image_name]["median_line_height"],
-                                            ""])
-                                            # "'" + csv_results[book_name][le_type]["images"][image_name]["error"] + "'"])
-    
-    def __gather_stats_on_book_watershed(self, p_book_directory):
+            # Lines
 
-        pass
+            # Count
+            line_counts.append(int(p_pagelevel_stats["images"][image_name]["num_lines"]))
+
+            # Dimensions
+            line_height_medians.append(p_pagelevel_stats["images"][image_name]["median_line_height"])
+            line_height_variances.append(p_pagelevel_stats["images"][image_name]["variance_line_height"])
+            areas_all_lines.append(p_pagelevel_stats["images"][image_name]["area_all_lines"])
+
+            # Images
+
+            # Dimensions
+            image_widths.append(p_pagelevel_stats["images"][image_name]["image_width"])
+            image_heights.append(p_pagelevel_stats["images"][image_name]["image_height"])
+            image_areas.append(p_pagelevel_stats["images"][image_name]["image_area"])
+
+        # 2. Tally errors for book  
+        error_filepath = ""
+        error_lookup = {}
+        results_folder = format_path(p_book_directory + RESULTS_DIRECTORY)
+        total_errors = 0
+        total_unique_errors = 0
+
+        for filepath in glob.glob(results_folder + WATERSHED_MERGED_ERROR_FILENAME.replace("{}", "*")):
+            error_filepath = filepath
+            break
+        if error_filepath:
+            with open(error_filepath, "r") as merged_error_file:
+                csv_reader = csv.DictReader(merged_error_file)
+                for row in csv_reader:
+                    error_lookup[row["error_source"]] = row["error"]
+        
+        if len(error_lookup):
+            total_errors = sum([len(error_lookup[error_source]) for error_source in error_lookup])
+            total_unique_errors = len(list(set([error for error_source in error_lookup for error in error_lookup[error_source]])))
+
+        # 3. Book level stats for results output
+        booklevel_stats = {
+            
+            "median_area_all_lines": median(areas_all_lines),
+            "median_image_area": median(image_areas),
+            "median_image_height": median(image_heights),
+            "median_image_width": median(image_widths),
+            "median_line_height_median": median(line_height_medians),
+            "median_page_line_count": median(line_counts),
+            "median_variance_line_height": median(line_height_variances),
+
+            "total_errors": total_errors,
+            "total_unique_errors": total_unique_errors,
+            "total_lines": sum(line_counts),
+            "total_pages": len(p_pagelevel_stats["images"]),    
+        }
+
+        return booklevel_stats       
+
 
     # 'run' command and helpers
 
