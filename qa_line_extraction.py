@@ -75,6 +75,7 @@ class QA_LineExtraction(QA_Module):
         self.config = p_config
         self.slurm_job_results = []
 
+
     # 'archive' commands
 
     def archive_logs(self):
@@ -93,54 +94,60 @@ class QA_LineExtraction(QA_Module):
         
         print("Exiting archive_logs")
 
+
     # 'clear' subcommands
 
     def clear_logs(self):
 
+        print("Entering QA_LineExtraction.clear_logs")
+
         # Clear all log files in the log folder
-        log_filepaths = glob.glob(self.config[OUTPUT_DIRECTORY] + "*.out")
-        for filepath in log_filepaths:
+        for filepath in glob.glob(self.config[OUTPUT_DIRECTORY] + "*.out"):
             if MASTER_LOG_FILENAME_PREFIX not in filepath and \
                ".gitignore" not in filepath:
                 os.unlink(filepath)
                 wait_while_exists(filepath)
 
+        print("Exiting QA_LineExtraction.clear_logs")
+
     def clear_results(self):
 
-        # Output of watershed line extraction
+        print("Entering QA_LineExtraction.clear_results")
 
-        if RUN_TYPE_MULTI == self.config[RUN_TYPE]:
-            for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
-                full_bookpath = format_path(self.config[BOOK_DIRECTORY] + book_directory)
-                if os.path.exists(full_bookpath + RESULTS_DIRECTORY):
-                    shutil.rmtree(full_bookpath + RESULTS_DIRECTORY, ignore_errors=True)
-                    wait_while_exists(full_bookpath + RESULTS_DIRECTORY)
-        elif RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
+        # 0. All subdirectories in line extraction book directory to be deleted
+        directories_to_be_removed = [
 
-            # Remove 'pages' subdirectory
-            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES):
-                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES, ignore_errors=True)
-                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES)
+            DIRECTORY_PAGES,
+            DIRECTORY_PAGES_COLOR,
+            DIRECTORY_LINES,
+            DIRECTORY_LINES_COLOR,
+            RESULTS_DIRECTORY,
+            "resultswatershed"
+        ]
 
-            # Remove 'pages_color' subdirectory
-            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES_COLOR):
-                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES_COLOR, ignore_errors=True)
-                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_PAGES_COLOR)
+        # 1. Establish list of book directories to look through for subdirectory deletion
+        book_directories = None
+        if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
+            book_directories = [self.config[BOOK_DIRECTORY]]
+        elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
+            book_directories = [self.config[BOOK_DIRECTORY] + directory + os.sep for directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"])]
 
-            # Remove 'lines' subdirectory
-            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES):
-                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES, ignore_errors=True)
-                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES)
+        # 2. Delete listed line extraction subdirectories in all book directories
+        for book_directory in book_directories:
+            for directory in directories_to_be_removed:
+                directory_to_be_removed = book_directory + directory
+                if os.path.exists(directory_to_be_removed):
+                    shutil.rmtree(directory_to_be_removed, ignore_errors=True)
+                    wait_while_exists(directory_to_be_removed)
 
-            # Remove 'lines_color' subdirectory
-            if os.path.exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES_COLOR):
-                shutil.rmtree(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES_COLOR, ignore_errors=True)
-                wait_while_exists(self.config[BOOK_DIRECTORY] + DIRECTORY_LINES_COLOR)
+        print("Exiting QA_LineExtraction.clear_results")
 
 
     # 'collate' subcommands and helpers
 
     def collate(self):
+
+        print("Entering QA_LineExtraction.collate")
 
         # For now, only collate errors
         # NOTE: This is a temporary implementation until a new line extraction method
@@ -150,7 +157,11 @@ class QA_LineExtraction(QA_Module):
         # QA sequence with this implementation is 'clear', 'run', 'collate', 'output_stats'
         self.collate_errors()
 
+        print("Exiting QA_LineExtraction.collate")
+
     def collate_errors(self):
+
+        print("Entering QA_LineExtraction.collate_errors")
 
         for le_type in LINEEXTRACTION_TYPES:
 
@@ -162,7 +173,11 @@ class QA_LineExtraction(QA_Module):
                     for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
                         self.__collate_errors_on_book_watershed(format_path(self.config[BOOK_DIRECTORY] + book_directory))
 
+        print("Exiting QA_LineExtraction.collate_errors")
+
     def __collate_errors_on_book_watershed(self, p_book_directory):
+    
+        print("Entering QA_LineExtraction.__collate_errors_on_book_watershed")
 
         # 1. Collect error files from both the run_dhsegment run and the watershed run
         dh_segment_error_filepath = os.path.join(p_book_directory, DIRECTORY_PAGES, DHSEGMENT_ERROR_FILENAME)
@@ -191,9 +206,13 @@ class QA_LineExtraction(QA_Module):
                             "\n".join(error_lines)
                         ])
 
+        print("Exiting QA_LineExtraction.__collate_errors_on_book_watershed")
+
     # NOTE: collate_results and its helpers are under construction/not run until
     # a new line extraction method is introduced for comparison
     def collate_results(self):
+    
+        print("Entering QA_LineExtraction.collate_results")
 
         # NOTE: Once more than one line extraction method is introduced,
         # this method will need to be refactored and __collate_results_on_book
@@ -224,7 +243,11 @@ class QA_LineExtraction(QA_Module):
             print("Merging all collated autocrop results")
             self.__collate_all_book_results()
 
+        print("Exiting QA_LineExtraction.collate_results")
+
     def __collate_all_book_results(self):
+    
+        print("Entering QA_LineExtraction.__collate_all_book_results")
 
         with open(self.config[OUTPUT_DIRECTORY] + "{0}_{1}.csv".format(RESULTS_FILENAME_PREFIX, self.config[RUN_UUID]), "w") as output_file:
             
@@ -256,7 +279,11 @@ class QA_LineExtraction(QA_Module):
                     output_file.writelines(input_file.readlines()[1:] if header_written else input_file.readlines())
                     header_written = True
 
+        print("Exiting QA_LineExtraction.__collate_all_book_results")
+
     def __collate_results_on_book(self, p_results_directory):
+    
+        print("Entering QA_LineExtraction.__collate_results_on_book")
 
         # 1. Get two most recent csv files for line extraction in the results directory (ignoring other collation csvs)
         csv_filepaths = [(filepath, os.path.getctime(filepath)) \
@@ -330,6 +357,8 @@ class QA_LineExtraction(QA_Module):
                 csv_writer.writerow([
                     # row[line extraction rows],...
                 ])
+        
+        print("Exiting QA_LineExtraction.__collate_results_on_book")
 
 
     # 'output_stats' command and helpers
@@ -571,7 +600,7 @@ class QA_LineExtraction(QA_Module):
 
         # 3. Output a csv file of these stats in the line extraction results folder
 
-        stats_filepath = results_folder + "{0}_{1}_{2}.csv".format(
+        stats_filepath = results_folder + "{0}{1}_{2}.csv".format(
             RESULTS_FILENAME_PREFIX.format(LINEEXTRACTION_TYPE_WATERSHED),
             Path(p_book_directory).name,
             self.config[RUN_UUID]
@@ -653,6 +682,10 @@ class QA_LineExtraction(QA_Module):
         for filepath in glob.glob(results_folder + WATERSHED_MERGED_ERROR_FILENAME.replace("{}", "*")):
             error_filepath = filepath
             break
+        print("ERROR FILEPATH for Book {0}: {1}".format(Path(p_book_directory).name, error_filepath))
+        print("results_folder: {0}".format(results_folder))
+        print("WATERSHED_MERGED_ERROR_FILENAME search string: {0}".format(WATERSHED_MERGED_ERROR_FILENAME.replace("{}", "*")))
+
         if error_filepath:
             with open(error_filepath, "r") as merged_error_file:
                 csv_reader = csv.DictReader(merged_error_file)
@@ -697,6 +730,8 @@ class QA_LineExtraction(QA_Module):
     # 'run' command and helpers
 
     def run(self):
+    
+        print("Entering QA_LineExtraction.run")
 
         self.slurm_job_results = []
 
@@ -709,6 +744,8 @@ class QA_LineExtraction(QA_Module):
         for index in range(len(self.slurm_job_results)):
             print("Result {0}: {1}".format(index, self.slurm_job_results[index]))
         print_debug_header()
+
+        print("Exiting QA_LineExtraction.run")
 
     def __run_on_all_books(self):
 
