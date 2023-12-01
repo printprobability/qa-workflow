@@ -116,16 +116,18 @@ class QA_Module:
 
     def collate_logs(self):
 
-        print("Entering/exiting collate_logs")
+        print("Entering/exiting QA_Module.collate_logs")
 
         pass
     def collate_results(self):
 
-        print("Entering/exiting collate_results")
+        print("Entering/exiting QA_Module.collate_results")
 
         pass  
 
     def data_stats(self):
+
+        print("Entering QA_Module.data_stats")
 
         # 1. Calculate stats for book and page images
         book_stats = {}
@@ -168,6 +170,8 @@ class QA_Module:
                         book_stats[book]["images"][image_name]["width"],
                         book_stats[book]["images"][image_name]["height"],
                     ])
+
+        print("Exiting QA_Module.data_stats")
 
     def run(self):
 
