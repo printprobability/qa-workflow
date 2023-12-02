@@ -36,6 +36,7 @@ DIRECTORY_PAGES = "pages" + os.sep
 DIRECTORY_PAGES_COLOR = "pages_color" + os.sep
 DIRECTORY_LINES = "lines" + os.sep
 DIRECTORY_LINES_COLOR = "lines_color" + os.sep
+DIRECTORY_QA_RESULTS = "qa_results"
 LINEEXTRACTION_SCRIPT_LOCATION_DHSEGMENT = QA_CODE_DIRECTORY + "run_dhsegment_on_book.py"
 LINEEXTRACTION_SCRIPT_LOCATION_WATERSHED = QA_CODE_DIRECTORY + "watershed_line_extraction.py"
 
@@ -50,7 +51,8 @@ LINEEXTRACTION_TYPES = [
 LINEEXTRACTION_WATERSHED_METADATA_FILE = "line_df.csv"
 DHSEGMENT_ERROR_FILENAME = "le_dhsegment_errors_*.txt"
 WATERSHED_ERROR_FILENAME = "le_watershed_errors_*.txt"
-WATERSHED_MERGED_ERROR_FILENAME = "le_watershed_all_errors_{}.txt"
+WATERSHED_MERGED_ERROR_FILENAME_BOOK = "le_watershed_{}_errors_{}.txt"
+WATERSHED_MERGED_ERROR_FILENAME_RUN = "le_watershed_all_errors_{}.txt"
 
 # QA output
 MASTER_LOG_FILENAME_PREFIX = "qa_slurm"
@@ -121,16 +123,15 @@ class QA_LineExtraction(QA_Module):
             DIRECTORY_PAGES_COLOR,
             DIRECTORY_LINES,
             DIRECTORY_LINES_COLOR,
-            RESULTS_DIRECTORY,
-            "resultswatershed"
+            DIRECTORY_QA_RESULTS
         ]
 
         # 1. Establish list of book directories to look through for subdirectory deletion
-        book_directories = None
+        book_directories = []
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-            book_directories = [self.config[BOOK_DIRECTORY]]
+            book_directories.append(self.config[BOOK_DIRECTORY])
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
-            book_directories = [self.config[BOOK_DIRECTORY] + directory + os.sep for directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"])]
+            book_directories.extend([self.config[BOOK_DIRECTORY] + directory + os.sep for directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"])])
 
         # 2. Delete listed line extraction subdirectories in all book directories
         for book_directory in book_directories:
@@ -149,29 +150,33 @@ class QA_LineExtraction(QA_Module):
 
         print("Entering QA_LineExtraction.collate")
 
-        # For now, only collate errors
-        # NOTE: This is a temporary implementation until a new line extraction method
-        # is introduced for comparison with the 'watershed' method. Now this should be run
-        # *before output_stats, so that errors can be tallied via the combined error files created
-        # by __collate_errors_on_book_watershed
-        # QA sequence with this implementation is 'clear', 'run', 'collate', 'output_stats'
-        self.collate_errors()
-
-        print("Exiting QA_LineExtraction.collate")
-
-    def collate_errors(self):
-
-        print("Entering QA_LineExtraction.collate_errors")
-
         for le_type in LINEEXTRACTION_TYPES:
 
             if LINEEXTRACTION_TYPE_WATERSHED == le_type:
 
-                if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-                    self.__collate_errors_on_book_watershed(self.config[BOOK_DIRECTORY])
-                elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
-                    for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
-                        self.__collate_errors_on_book_watershed(format_path(self.config[BOOK_DIRECTORY] + book_directory))
+                # NOTE: This is run *before* output_stats, so that errors can
+                # later be outputted into a master file and tallied via the
+                # combined error files created by __collate_errors_on_book_watershed
+                # QA sequence for watershed is 'clear', 'run', 'collate', 'output_stats'
+                self.collate_errors(LINEEXTRACTION_TYPE_WATERSHED)
+
+        print("Exiting QA_LineExtraction.collate")
+
+    def collate_errors(self, p_le_type):
+
+        print("Entering QA_LineExtraction.collate_errors")
+
+        if LINEEXTRACTION_TYPE_WATERSHED == p_le_type:
+
+            # 1. Bring together the two error files (dhsegment and watershed) into one error file
+            if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
+                self.__collate_errors_on_book_watershed(self.config[BOOK_DIRECTORY])
+            elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
+                for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+                    self.__collate_errors_on_book_watershed(format_path(self.config[BOOK_DIRECTORY] + book_directory))
+            
+            # 2. Merge all errors into one file in the output directory
+            self.__collate_all_errors_watershed()
 
         print("Exiting QA_LineExtraction.collate_errors")
 
@@ -180,8 +185,8 @@ class QA_LineExtraction(QA_Module):
         print("Entering QA_LineExtraction.__collate_errors_on_book_watershed")
 
         # 1. Collect error files from both the run_dhsegment run and the watershed run
-        dh_segment_error_filepath = os.path.join(p_book_directory, DIRECTORY_PAGES, DHSEGMENT_ERROR_FILENAME)
-        watershed_error_filepath = os.path.join(p_book_directory, DIRECTORY_LINES_COLOR, WATERSHED_ERROR_FILENAME)
+        dh_segment_error_filepath = os.path.join(p_book_directory, DIRECTORY_QA_RESULTS, DHSEGMENT_ERROR_FILENAME)
+        watershed_error_filepath = os.path.join(p_book_directory, DIRECTORY_QA_RESULTS, WATERSHED_ERROR_FILENAME)
         error_dict = {
 
             "dh_segment": read_error_file(dh_segment_error_filepath, "LE"),
@@ -189,12 +194,15 @@ class QA_LineExtraction(QA_Module):
         }
 
         # 2. Create the results directory in the book directory
-        results_directory = self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY + os.sep
+        results_directory = p_book_directory + DIRECTORY_QA_RESULTS + os.sep
         if not os.path.exists(results_directory):
             os.makedirs(results_directory)
 
         # 3. Output them into one csv file
-        combined_error_filepath = results_directory + WATERSHED_MERGED_ERROR_FILENAME.format(self.config[RUN_UUID])
+        book_name = Path(p_book_directory).name
+        combined_error_filepath = results_directory + \
+            "{0}{1}_{2}.csv".format(ERRORS_FILENAME_PREFIX.format(LINEEXTRACTION_TYPE_WATERSHED),
+                                    book_name, self.config[RUN_UUID])
         with open(combined_error_filepath, "w") as merged_error_file:
             csv_writer = csv.writer(merged_error_file)
             csv_writer.writerow(["error_source", "error"])
@@ -208,158 +216,45 @@ class QA_LineExtraction(QA_Module):
 
         print("Exiting QA_LineExtraction.__collate_errors_on_book_watershed")
 
-    # NOTE: collate_results and its helpers are under construction/not run until
-    # a new line extraction method is introduced for comparison
-    def collate_results(self):
-    
-        print("Entering QA_LineExtraction.collate_results")
+    def __collate_all_errors_watershed(self):
 
-        # NOTE: Once more than one line extraction method is introduced,
-        # this method will need to be refactored and __collate_results_on_book
-        # will need to be adapted for QA line extraction
-
+        # 1. List of book directories where error csvs can be found
+        book_directories = []
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-            self.__collate_results_on_book(self.config[BOOK_DIRECTORY] + RESULTS_DIRECTORY + os.sep)
-            pass
+            book_directories = [self.config[BOOK_DIRECTORY]]
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
+            for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+                book_directories.append(self.config[BOOK_DIRECTORY] + os.sep + book_directory + os.sep)
 
-            # # 1. Created merged line extraction results for each book in the book directory
-            # for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
+        # 2. Add errors to a master error file in the output directory
+        for book_directory in book_directories:
+            
+            results_directory = book_directory + DIRECTORY_QA_RESULTS + os.sep
+            combined_error_filepath = results_directory + \
+                "{0}{1}_{2}.csv".format(ERRORS_FILENAME_PREFIX.format(LINEEXTRACTION_TYPE_WATERSHED),
+                                        Path(book_directory).name, self.config[RUN_UUID])
+            merge_all_filepath = self.config[OUTPUT_DIRECTORY] + WATERSHED_MERGED_ERROR_FILENAME_RUN.format(self.config[RUN_UUID])
+            
+            # A. Read in errors from this file
+            error_lookup = {}
+            with open(combined_error_filepath, "r") as input_file:
+                csv_reader = csv.DictReader(input_file)
+                for row in csv_reader:
+                    error_lookup[row["error_source"]] = row["error"]
 
-            #     full_bookpath = format_path(self.config[BOOK_DIRECTORY] + book_directory)
+            # B. Add the errors to the merged master error file
+            write_header = False
+            if not os.path.exists(merge_all_filepath):
+                write_header = True
 
-            #     # Skip the QA log output directory if it exists in the book directory
-            #     if Path(self.config[OUTPUT_DIRECTORY]).name == Path(full_bookpath):
-            #         continue
+            with open(merge_all_filepath, "a") as output_file:
+
+                if write_header:
+                    output_file.write("error_source,error\n")
+
+                for error_source in error_lookup:
+                    output_file.write(f"{error_source},{error_lookup[error_source]}\n")
                 
-            #     # Write out a merged results file for this book in its results directory
-            #     try:
-            #         self.__collate_results_on_book(full_bookpath + RESULTS_DIRECTORY + os.sep)
-            #     except Exception as e:
-            #         print("Collation of results for book {0} has failed.".format(book_directory))
-            #         traceback.print_exc(file=sys.stdout)
-
-            # 2. Create one CSV file for all books in qa output directory
-            print("Merging all collated autocrop results")
-            self.__collate_all_book_results()
-
-        print("Exiting QA_LineExtraction.collate_results")
-
-    def __collate_all_book_results(self):
-    
-        print("Entering QA_LineExtraction.__collate_all_book_results")
-
-        with open(self.config[OUTPUT_DIRECTORY] + "{0}_{1}.csv".format(RESULTS_FILENAME_PREFIX, self.config[RUN_UUID]), "w") as output_file:
-            
-            # 1. Read in collated results for each book and write them to the merged file
-            header_written = False
-            for book_directory in get_items_in_dir(format_path(self.config[BOOK_DIRECTORY]), ["directories"]):
-
-                # A. Get the latest collated csv file
-                # results_directory = format_path(self.config[BOOK_DIRECTORY] + book_directory + os.sep + RESULTS_DIRECTORY)
-                # csv_filepaths = []
-                # for filepath in glob.glob(results_directory + "merged_*.csv"):
-                #     csv_filepaths.append((filepath, os.path.getctime(filepath)))
-                # if 0 == len(csv_filepaths):
-                #     print("No collated csv file found for {0}.".format(book_directory))
-                #     continue
-                # sorted_csv_filepaths = sorted(csv_filepaths, key=lambda filepath: filepath[1], reverse=True)
-                # latest_merged_filepath = sorted_csv_filepaths[0][0]
-                results_directory = format_path(self.config[BOOK_DIRECTORY] + book_directory + os.sep + RESULTS_DIRECTORY)
-                latest_merged_filepath = results_directory + "{0}_{1}_{2}.csv".format(STATS_FILE_PREFIX, LINEEXTRACTION_TYPE_WATERSHED, self.config[RUN_UUID])
-
-                if not os.path.exists(latest_merged_filepath):
-                    print("ERROR: Stats file does not exist for {0} at {1}".format(book_directory, latest_merged_filepath))
-                    continue 
-
-                # B. Save the csv file contents to the merged file
-                with open(latest_merged_filepath, "r") as input_file:
-                    
-                    # Add the lines from this collated csv file (skipping the header if already written) to the all results csv file
-                    output_file.writelines(input_file.readlines()[1:] if header_written else input_file.readlines())
-                    header_written = True
-
-        print("Exiting QA_LineExtraction.__collate_all_book_results")
-
-    def __collate_results_on_book(self, p_results_directory):
-    
-        print("Entering QA_LineExtraction.__collate_results_on_book")
-
-        # 1. Get two most recent csv files for line extraction in the results directory (ignoring other collation csvs)
-        csv_filepaths = [(filepath, os.path.getctime(filepath)) \
-            for filepath in glob.glob(p_results_directory + "*.csv") if "merged_" not in filepath]
-        if len(csv_filepaths) < 2:
-            raise Exception("Less than two csv files in the results directory: {0}".format(p_results_directory))
-        sorted_csv_filepaths = sorted(csv_filepaths, key=lambda filepath: filepath[1], reverse=True)
-        results_filepath1, results_filepath2 = sorted_csv_filepaths[0][0], sorted_csv_filepaths[1][0]
-
-        # 2. Merge results file rows
-        with open(results_filepath1, "r") as results_file1:
-            
-            # A. Save rows from the first results file
-            csv_reader1 = csv.DictReader(results_file1)
-            results1_rows = []
-            for row in csv_reader1:
-                results1_rows.append({ key: row[key] for key in csv_reader1.fieldnames })
-
-            # B. Merge rows from the second results file with the first
-            with open(results_filepath2, "r") as results_file2:
-
-                # I. Grab second results file row
-                csv_reader2 = csv.DictReader(results_file2)
-                if csv_reader1.fieldnames != csv_reader2.fieldnames:
-                    raise Exception("Csv files being merged don't have same columns in the results directory: {0}".format(p_results_directory))
-                results2_rows = []
-                for row in csv_reader2:
-                    results2_rows.append({ key: row[key] for key in csv_reader2.fieldnames })
-
-                # II. Merge results file rows
-                merged_results = results1_rows.copy() + [row for row in results2_rows if "original" != row["autocrop_type"]] 
-
-        # 3. Write results into one csv file in the results directory
-        print("Writing merged results for results dir: {0}".format(p_results_directory))
-        with open(p_results_directory + "merged_results_{0}.csv".format(self.config[RUN_UUID]), "w") as output_file:
-            csv_writer = csv.writer(output_file)
-
-            # csv_writer.writerow([
-            #     "book_name",
-            #     "total_page_count",
-            #     "autocrop_type",
-            #     "image_name",
-            #     "image_width",
-            #     "image_height",
-            #     "min_pct_dimension_difference",
-            #     "image_area",
-            #     "area_diff_from_original",
-            #     "percent_area_diff_from_original",
-            #     "frobenius_norm_from_original",
-            #     "error"
-            # ])
-            csv_writer.writerow([
-                # Line extraction results header columns
-            ])
-
-            for row in merged_results:
-                # csv_writer.writerow([
-                #     row["book_name"],
-                #     row["total_page_count"],
-                #     row["autocrop_type"],
-                #     row["image_name"],
-                #     row["image_width"],
-                #     row["image_height"],
-                #     row["min_pct_dimension_difference"],
-                #     row["image_area"],
-                #     row["area_diff_from_original"],
-                #     row["percent_area_diff_from_original"],
-                #     row["frobenius_norm_from_original"],
-                #     row["error"]
-                # ])
-                csv_writer.writerow([
-                    # row[line extraction rows],...
-                ])
-        
-        print("Exiting QA_LineExtraction.__collate_results_on_book")
-
 
     # 'output_stats' command and helpers
 
@@ -373,7 +268,7 @@ class QA_LineExtraction(QA_Module):
             booklevel_stats = {
                 book_name: self.__output_stats_on_book(self.config[BOOK_DIRECTORY])
             }
-            self.__output_stats_booklevel(self.config[BOOK_DIRECTORY], booklevel_stats)
+            self.__output_stats_runlevel(self.config[BOOK_DIRECTORY], booklevel_stats)
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
 
             self.__output_stats_on_all_books()
@@ -387,61 +282,16 @@ class QA_LineExtraction(QA_Module):
         # 1. Output a results file per book and store booklevel stats that are returned
         booklevel_stats = {}
         for book_name in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
-            if RESULTS_DIRECTORY != book_name:
+            if DIRECTORY_QA_RESULTS != book_name:
                 booklevel_stats[book_name] = self.__output_stats_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name))
 
         # 2. Output one file containing booklevel stats of for whole line extraction run
-        self.__output_stats_booklevel(booklevel_stats)
+        self.__output_stats_runlevel(booklevel_stats)
+
+        # 3. Create a master file of all book level stats for this run for all line extraction types
+        self.__merge_booklevel_statsfiles()
 
         print("Exiting QA_LineExtraction.__output_stats_on_all_books")
-
-    def __output_stats_booklevel(self, p_booklevel_stats):
-
-        print("Entering QA_LineExtraction.__output_stats_booklevel")
-
-        for le_type in LINEEXTRACTION_TYPES:
-
-            results_filename_prefix = RESULTS_FILENAME_PREFIX.format(le_type)
-            results_filepath = f"{self.config[OUTPUT_DIRECTORY]}{results_filename_prefix}all_{self.config[RUN_UUID]}.csv"
-
-            with open(results_filepath, "w") as output_file:
-
-                print(f"Writing results to {results_filepath}")
-
-                csv_writer = csv.writer(output_file)
-
-                csv_writer.writerow([
-                    "book_name",
-                    "pages",
-                    "lines",
-                    "errors",
-                    "unique_errors",
-                    "median_page_width",
-                    "median_page_height",
-                    "median_page_area",
-                    "median_all_lines_area",
-                    "median_line_height_median",
-                    "median_variance_line_height"            
-                ])
-
-                for book_name in p_booklevel_stats:
-
-                    csv_writer.writerow([
-
-                        book_name,
-                        p_booklevel_stats[book_name][le_type]["total_pages"],
-                        p_booklevel_stats[book_name][le_type]["total_lines"],
-                        p_booklevel_stats[book_name][le_type]["total_errors"],
-                        p_booklevel_stats[book_name][le_type]["total_unique_errors"],
-                        p_booklevel_stats[book_name][le_type]["median_image_width"],
-                        p_booklevel_stats[book_name][le_type]["median_image_height"],
-                        p_booklevel_stats[book_name][le_type]["median_image_area"],
-                        p_booklevel_stats[book_name][le_type]["median_area_all_lines"],
-                        p_booklevel_stats[book_name][le_type]["median_line_height_median"],
-                        p_booklevel_stats[book_name][le_type]["median_variance_line_height"]
-                    ])
-
-        print("Exiting QA_LineExtraction.__output_stats_booklevel")
 
     def __output_stats_on_book(self, p_book_directory):
 
@@ -472,7 +322,7 @@ class QA_LineExtraction(QA_Module):
         lines_color_folder = format_path(p_book_directory + DIRECTORY_LINES_COLOR)
         line_df_filepath = lines_color_folder + LINEEXTRACTION_WATERSHED_METADATA_FILE
         pages_color_folder = p_book_directory + DIRECTORY_PAGES_COLOR
-        results_folder = format_path(p_book_directory + RESULTS_DIRECTORY)
+        results_folder = format_path(p_book_directory + DIRECTORY_QA_RESULTS)
 
         # 0. Make a folder for the new output stats file
         if not os.path.exists(results_folder):
@@ -481,7 +331,7 @@ class QA_LineExtraction(QA_Module):
         # 1. Potential error file for this line extraction run for this book
         error_lookup = {}
         error_filepath = ""
-        for filepath in glob.glob(results_folder + WATERSHED_MERGED_ERROR_FILENAME.replace("{}", "*")):
+        for filepath in glob.glob(results_folder + WATERSHED_MERGED_ERROR_FILENAME_BOOK.replace("{}", "*")):
             error_filepath = filepath
             break
         if error_filepath:
@@ -675,16 +525,16 @@ class QA_LineExtraction(QA_Module):
         # 2. Tally errors for book  
         error_filepath = ""
         error_lookup = {}
-        results_folder = format_path(p_book_directory + RESULTS_DIRECTORY)
+        results_folder = format_path(p_book_directory + DIRECTORY_QA_RESULTS)
         total_errors = 0
         total_unique_errors = 0
 
-        for filepath in glob.glob(results_folder + WATERSHED_MERGED_ERROR_FILENAME.replace("{}", "*")):
+        for filepath in glob.glob(results_folder + WATERSHED_MERGED_ERROR_FILENAME_BOOK.replace("{}", "*")):
             error_filepath = filepath
             break
         print("ERROR FILEPATH for Book {0}: {1}".format(Path(p_book_directory).name, error_filepath))
         print("results_folder: {0}".format(results_folder))
-        print("WATERSHED_MERGED_ERROR_FILENAME search string: {0}".format(WATERSHED_MERGED_ERROR_FILENAME.replace("{}", "*")))
+        print("WATERSHED_MERGED_ERROR_FILENAME_BOOK search string: {0}".format(WATERSHED_MERGED_ERROR_FILENAME_BOOK.replace("{}", "*")))
 
         if error_filepath:
             with open(error_filepath, "r") as merged_error_file:
@@ -725,6 +575,96 @@ class QA_LineExtraction(QA_Module):
         print("Exiting QA_LineExtraction.__tally_booklevel_stats_watershed")
 
         return booklevel_stats       
+
+    def __merge_booklevel_statsfiles(self):
+
+        print("Entering QA_LineExtraction.__merge_booklevel_statsfiles")
+
+        for le_type in LINEEXTRACTION_TYPES:
+
+            if LINEEXTRACTION_TYPE_WATERSHED == le_type:
+                self.__merge_booklevel_statsfiles_watershed()
+
+        print("Exiting QA_LineExtraction.__merge_booklevel_statsfiles")
+
+    def __merge_booklevel_statsfiles_watershed(self):
+
+        print("Entering QA_LineExtraction.__merge_booklevel_statsfiles_watershed")
+
+        master_stats_filename = "{0}{1}.csv".format(RESULTS_FILENAME_PREFIX.format(LINEEXTRACTION_TYPE_WATERSHED), self.config[RUN_UUID])
+
+        with open(self.config[OUTPUT_DIRECTORY] + master_stats_filename, "w") as output_file:
+
+            # 1. Read the outputted stats file for each book and write it to the master stats file
+            header_written = False
+            for book_directory in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
+
+                results_directory = format_path(self.config[BOOK_DIRECTORY] + book_directory + os.sep + DIRECTORY_QA_RESULTS)
+                bookstats_filename =  "{0}{1}_{2}.csv".format(
+                    RESULTS_FILENAME_PREFIX.format(LINEEXTRACTION_TYPE_WATERSHED),
+                    book_directory,
+                    self.config[RUN_UUID]
+                )
+
+                if not os.path.exists(results_directory + bookstats_filename):
+                    print("ERROR: Stats file does not exist for {0} at {1}".format(book_directory, results_directory + bookstats_filename))
+                    continue 
+
+                # Add the book stats file contents to the master stats file (skipping the header if already written)
+                with open(results_directory + bookstats_filename, "r") as input_file:
+                    
+                    output_file.writelines(input_file.readlines()[1:] if header_written else input_file.readlines())
+                    header_written = True
+
+        print("Exiting QA_LineExtraction.__merge_booklevel_statsfiles_watershed")
+
+    def __output_stats_runlevel(self, p_booklevel_stats):
+
+        print("Entering QA_LineExtraction.__output_stats_runlevel")
+
+        for le_type in LINEEXTRACTION_TYPES:
+
+            results_filename_prefix = RESULTS_FILENAME_PREFIX.format(le_type)
+            results_filepath = f"{self.config[OUTPUT_DIRECTORY]}{results_filename_prefix}all_{self.config[RUN_UUID]}.csv"
+
+            with open(results_filepath, "w") as output_file:
+
+                print(f"Writing results to {results_filepath}")
+
+                csv_writer = csv.writer(output_file)
+
+                csv_writer.writerow([
+                    "book_name",
+                    "pages",
+                    "lines",
+                    "errors",
+                    "unique_errors",
+                    "median_page_width",
+                    "median_page_height",
+                    "median_page_area",
+                    "median_all_lines_area",
+                    "median_line_height_median",
+                    "median_variance_line_height"            
+                ])
+
+                for book_name in p_booklevel_stats:
+
+                    csv_writer.writerow([
+
+                        book_name,
+                        p_booklevel_stats[book_name][le_type]["total_pages"],
+                        p_booklevel_stats[book_name][le_type]["total_lines"],
+                        p_booklevel_stats[book_name][le_type]["total_errors"],
+                        p_booklevel_stats[book_name][le_type]["total_unique_errors"],
+                        p_booklevel_stats[book_name][le_type]["median_image_width"],
+                        p_booklevel_stats[book_name][le_type]["median_image_height"],
+                        p_booklevel_stats[book_name][le_type]["median_image_area"],
+                        p_booklevel_stats[book_name][le_type]["median_area_all_lines"],
+                        p_booklevel_stats[book_name][le_type]["median_line_height_median"],
+                        p_booklevel_stats[book_name][le_type]["median_variance_line_height"]
+                    ])
+
+        print("Exiting QA_LineExtraction.__output_stats_runlevel")
 
 
     # 'run' command and helpers
