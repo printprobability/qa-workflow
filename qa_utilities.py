@@ -678,19 +678,6 @@ def wait_while_exists(p_path):
 
 def main(p_args):
 
-    # print("len(p_args): {0}".format(len(p_args)))
-    # print("len(p_args[2:]): {0}".format(len(p_args[2:])))
-    # print("globals()[p_args[1]].__code__.co_varnames: {0}".format(globals()[p_args[1]].__code__.co_varnames))
-    # print("len(globals()[{0}].__code__.co_varnames): {1}".format(p_args[1], len(globals()[p_args[1]].__code__.co_varnames)))
-    # print("inspect.getfullargspec({0})[0]: {1}".format(
-    #         p_args[1],
-    #         inspect.getfullargspec(globals()[p_args[1]])[0]
-    #     )
-    # )
-
-    # if True:
-    #     return
-
     # Make sure utility function name is given and the arguments it needs
     if len(p_args) < 2 or len(p_args[2:]) != len(inspect.getfullargspec(globals()[p_args[1]])[0]):
         print("qa_utilities.py usage: ")
