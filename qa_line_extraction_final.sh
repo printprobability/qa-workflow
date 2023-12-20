@@ -13,9 +13,15 @@
 echo "In qa_line_extraction_final.sh"
 
 # Make sure at least a book directory and run ID have been passed to this script
-if [ -z "$1" ] || [ -z "$2" ]
-then
-  fail "qa_line_extraction.sh must be supplied with a book directory and unique run ID."
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+  fail "qa_line_extraction.sh must be supplied with a line extraction type, book directory, and unique run ID."
+fi
+
+# Determine which conda environment to activate
+if [ "watershed" == "$1" ]; then
+  environment_directory = "/ocean/projects/hum160002p/nikolaiv/miniconda3/envs/dh_segment"
+else # [ "eynollah" == $1 ]; then
+  environment_directory = "/ocean/projects/hum160002p/nikolaiv/miniconda3/envs/eynollah"
 fi
 
 # Show QA line extraction start time
@@ -26,7 +32,7 @@ echo "Loading conda environment for line extraction..."
 source ~/.bashrc
 module load anaconda3
 conda init
-conda activate /ocean/projects/hum160002p/nikolaiv/miniconda3/envs/dh_segment
+conda activate $environment_directory
 
 # 2. Run QA for line extraction over this book directory
 line_extraction_type=$1
