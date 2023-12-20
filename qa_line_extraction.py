@@ -746,14 +746,26 @@ class QA_LineExtraction(QA_Module):
             # A. Run line extraction on the book with the given arguments
 
             # I. sbatch arguments
-            sbatch_directives = {
+            if LINEEXTRACTION_TYPE_EYNOLLAH == le_type:
 
-                "-c": SBATCH_NUMBER_CPUS,
-                "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
-                "-o": "{0}slurm-{1}_{2}_{3}.out".format(self.config[OUTPUT_DIRECTORY], book_name, le_type, self.config[RUN_UUID]),
-                "-p": SBATCH_PARTITION,                
-                "-t": SBATCH_TIME
-            }
+                sbatch_directives = {
+
+                    "-c": SBATCH_EYNOLLAH_NUMBER_CPUS,
+                    "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
+                    "-o": "{0}slurm-{1}_{2}_{3}.out".format(self.config[OUTPUT_DIRECTORY], book_name, le_type, self.config[RUN_UUID]),
+                    "-p": SBATCH_PARTITION,                
+                    "-t": SBATCH_TIME
+                }
+            elif LINEEXTRACTION_TYPE_WATERSHED == le_type:
+
+                sbatch_directives = {
+
+                    "-c": SBATCH_NUMBER_CPUS,
+                    "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
+                    "-o": "{0}slurm-{1}_{2}_{3}.out".format(self.config[OUTPUT_DIRECTORY], book_name, le_type, self.config[RUN_UUID]),
+                    "-p": SBATCH_PARTITION,                
+                    "-t": SBATCH_TIME
+                }
 
             # II. Build the sbatch call
             subprocess_cmd = "sbatch"
@@ -887,7 +899,6 @@ def run_line_extraction_eynollah(args):
 
     # 4. Show end time
     print(f"Eynollah line extraction end time: {datetime.now()}")
-
 
 def run_line_extraction_watershed(args):
 
