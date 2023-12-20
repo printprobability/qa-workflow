@@ -645,6 +645,22 @@ def read_error_file(p_error_filepath_with_wildcard, p_module_name):
     
     return error_lookup
 
+def scale_image(p_image_filepath, p_scale_factor, p_scale_tag="scaled"):
+
+    # 1. Load the image into memory
+    try:
+        image = Image.open(p_image_filepath)
+    except UnidentifiedImageError:
+        print(f"Tried to scale '{p_image_filepath}' and received UnidentifiedImageError")
+        return
+
+    # 2. Scale the image by the given factor
+    image.thumbnail((image.size[0] * float(p_scale_factor), image.size[1] * float * p_scale_factor))
+
+    # 3. Save image to disk under filename with given tag
+    new_image_name = f"{Path(p_image_filepath).stem}_{p_scale_tag}{Path(p_image_filepath).suffix}"
+    image.save(os.path.join(Path(p_image_filepath).parent, new_image_name)) 
+
 def str_to_class(module_name, class_name):
 
     """Return a class instance from a string reference"""
