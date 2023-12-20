@@ -12,3 +12,6 @@ BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extra
 RUN_TYPE: "single"
 
 OUTPUT_DIRECTORY: "/ocean/projects/hum160002p/shared/books/code/qa_workflow/logs/"
+
+QA_SUBTYPE: "eynollah"
+# QA_SUBTYPE: "watershed"

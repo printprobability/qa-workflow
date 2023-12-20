@@ -54,6 +54,10 @@ def handle_args():
         action="store_true",
         help="Command to just output a csv file containing stats on a completed QA run")
     parser.add_argument(
+        "--qa_subtype",
+        help="Subtype of requested QA process (e.g. for line extraction: 'watershed', 'eynollah', etc."
+    )
+    parser.add_argument(
         "--single_book",
         action="store_true",
         help="QA the cropping of a single book. NOTE: Requires a '--book_directory' and an '--output_directory'")
@@ -96,6 +100,12 @@ def handle_args():
         elif not os.path.isdir(output_parent_directory):
             print("Output directory's parent: {0} is not a directory.".format(output_parent_directory))
             success = False
+    if args.qa_function:
+        if QA_TYPE_LINE_EXTRACTION == args.qa_function:
+            if not args.qa_subtype:
+                print("A subtype for line extraction must be specified.")
+                print("Current options: eynollah, watershed")
+                success = False
 
     return args, success
 
@@ -133,6 +143,8 @@ def save_config(p_args):
     if p_args.single_book:
 
         qa_config[QA_TYPE] = p_args.qa_function
+        if p_args.qa_subtype:
+            qa_config[QA_SUBTYPE] = p_args.qa_subtype
         qa_config[RUN_TYPE] = RUN_TYPE_SINGLE
         qa_config[BOOK_DIRECTORY] = format_path(p_args.book_directory)
 
@@ -140,6 +152,13 @@ def save_config(p_args):
         if not directory_has_files_of_type(qa_config[BOOK_DIRECTORY], ".tif"):
             print("Could not find any tif images in the book directory: {0}.".format(qa_config[BOOK_DIRECTORY]))
             success = False
+
+        # B. Make sure subtype is specified for this process if required
+        if QA_TYPE_LINE_EXTRACTION == qa_config[QA_TYPE]:
+            if not p_args.qa_subtype:
+                print("A subtype for line extraction must be specified.")
+                print("Current options: eynollah, watershed")
+                success = False
     else:
 
         qa_config[RUN_TYPE] = RUN_TYPE_MULTI
@@ -157,6 +176,8 @@ def save_config(p_args):
         # NOTE: RUN_TYPE can also be 'single' here to indicate a single book run that is using a config file
         if RUN_TYPE in config_yaml:
             qa_config[RUN_TYPE] = config_yaml[RUN_TYPE]
+        if QA_SUBTYPE in config_yaml:
+            qa_config[QA_SUBTYPE] = config_yaml[QA_SUBTYPE]
 
         # B. Check contents of config file
         if not all(cmd in config_yaml.keys() for cmd in config_required_fields):
@@ -169,7 +190,11 @@ def save_config(p_args):
         if qa_config[QA_TYPE] not in VALID_QA_TYPES:
             print("{0} is an invalid qa type. Valid qa types: {1}".format(qa_config[QA_TYPE], VALID_QA_TYPES))
             success = False
-            
+        if QA_TYPE_LINE_EXTRACTION == qa_config[QA_TYPE] and QA_SUBTYPE not in qa_config:
+            print("A subtype for line extraction must be specified.")
+            print("Current options: eynollah, watershed")
+            success = False
+
     # 4. Check config elements common to both single and multi-book runs
     if not os.path.exists(qa_config[BOOK_DIRECTORY]):
         print("Book directory: {0} does not exist.".format(qa_config[BOOK_DIRECTORY]))
