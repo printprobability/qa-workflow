@@ -132,14 +132,27 @@ class QA_LineExtraction(QA_Module):
         print("Entering QA_LineExtraction.clear_results")
 
         # 0. All subdirectories in line extraction book directory to be deleted
-        directories_to_be_removed = [
+        if LINEEXTRACTION_TYPE_WATERSHED == self.config[QA_SUBTYPE]:
+            
+            directories_to_be_removed = [
 
-            DIRECTORY_PAGES,
-            DIRECTORY_PAGES_COLOR,
-            DIRECTORY_LINES,
-            DIRECTORY_LINES_COLOR,
-            DIRECTORY_QA_RESULTS
-        ]
+                DIRECTORY_PAGES,
+                DIRECTORY_PAGES_COLOR,
+                DIRECTORY_LINES,
+                DIRECTORY_LINES_COLOR,
+                DIRECTORY_QA_RESULTS
+            ]
+        elif LINEEXTRACTION_TYPE_EYNOLLAH == self.config[QA_SUBTYPE]:
+            
+            directories_to_be_removed = [
+
+                DIRECTORY_PAGES,
+                DIRECTORY_PAGES_COLOR,
+                DIRECTORY_LINES,
+                DIRECTORY_LINES_COLOR,
+                EYNOLLAH_OUTPUT_DIRECTORY,
+                DIRECTORY_QA_RESULTS,
+            ]
 
         # 1. Establish list of book directories to look through for subdirectory deletion
         book_directories = []
@@ -838,7 +851,7 @@ def run_line_extraction_eynollah(args):
     
     print(f"Done running eynollah line extraction on {book_directory}.")
 
-    # Temporarily leave out this step for initial testing of eynollah method
+    # NOTE: Temporarily leave out this step for initial testing of eynollah method
     line_image_extraction = False
 
     if line_image_extraction:
