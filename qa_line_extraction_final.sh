@@ -19,9 +19,9 @@ fi
 
 # Determine which conda environment to activate
 if [ "watershed" == "$1" ]; then
-  environment_directory = "/ocean/projects/hum160002p/nikolaiv/miniconda3/envs/dh_segment"
+  environment_directory="/ocean/projects/hum160002p/nikolaiv/miniconda3/envs/dh_segment"
 else # [ "eynollah" == $1 ]; then
-  environment_directory = "/ocean/projects/hum160002p/nikolaiv/miniconda3/envs/eynollah"
+  environment_directory="/ocean/projects/hum160002p/nikolaiv/miniconda3/envs/eynollah"
 fi
 
 # Show QA line extraction start time
