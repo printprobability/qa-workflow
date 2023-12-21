@@ -82,6 +82,13 @@ SBATCH_TIME = "48:00:00"
 # Special sbatch parameters for 'Eynollah' line extraction
 SBATCH_EYNOLLAH_NUMBER_CPUS = "8"
 
+# Special sbatch parameters for 'Eynollah' line extraction
+SBATCH_EYNOLLAH_NUMBER_CPUS = "8"
+
+RUN_ALL_SBATCH_MEMORY_PER_CPU = "1999mb"
+RUN_ALL_SBATCH_NUMBER_CPUS = "2"
+RUN_ALL_SBATCH_PARTITION = "RM-shared"
+RUN_ALL_SBATCH_TIME = "48:00:00"
 
 # Classes
 
@@ -569,16 +576,36 @@ class QA_LineExtraction(QA_Module):
         print("ERROR FILEPATH for Book {0}: {1}".format(Path(p_book_directory).name, error_filepath))
         print("results_folder: {0}".format(results_folder))
         print("WATERSHED_MERGED_ERROR_FILENAME_BOOK search string: {0}".format(WATERSHED_MERGED_ERROR_FILENAME_BOOK.replace("{}", "*")))
+        print("self.config: {0}".format(self.config))
+        error_filepath = results_folder + WATERSHED_MERGED_ERROR_FILENAME_BOOK.format(
+            Path(p_book_directory).name,
+            self.config[ERROR_FILE_RUN_UUID]
+        )
+        print("OVERRIDING error filepath: {0}".format(error_filepath))
+        print("File exists: {0}".format(os.path.exists(error_filepath)))
+        if not os.path.exists(error_filepath):
+            error_filepath = ""
+        else:
+            print("FOUND FOUND FOUND FOUND FOUND FOUND FOUND")
+            print("error_lookup at: {0}".format(error_filepath))
 
         if error_filepath:
             with open(error_filepath, "r") as merged_error_file:
                 csv_reader = csv.DictReader(merged_error_file)
                 for row in csv_reader:
-                    error_lookup[row["error_source"]] = row["error"]
+                    if row["error_source"] not in error_lookup:
+                        error_lookup[row["error_source"]] = []
+                    error_lookup[row["error_source"]].append(row["error"])
+
+        print("Error lookup key count: {0}".format(len(list(error_lookup.keys()))))
         
-        if len(error_lookup):
+        if len(list(error_lookup.keys())):
+
             total_errors = sum([len(error_lookup[error_source]) for error_source in error_lookup])
             total_unique_errors = len(list(set([error for error_source in error_lookup for error in error_lookup[error_source]])))
+
+            print("Total errors: {0}".format(total_errors))
+            print("Total unique errors: {0}".format(total_unique_errors))
 
         # 3. Book level stats for results output
         booklevel_stats = {
@@ -730,6 +757,40 @@ class QA_LineExtraction(QA_Module):
         return [ self.__run_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name)) \
             for book_name in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]) \
             if Path(self.config[OUTPUT_DIRECTORY]).name != book_name ]
+
+    def __run_on_all_books_version2(self):
+
+        pass
+        # Call bash script that iterates over n subdirectories given as arguments
+
+        # # I. sbatch arguments
+        # sbatch_directives = {
+
+        #     "-c": SBATCH_NUMBER_CPUS,
+        #     "--mem-per-cpu": SBATCH_MEMORY_PER_CPU,
+        #     "-o": "{0}slurm-{1}_{2}_{3}.out".format(self.config[OUTPUT_DIRECTORY], book_name, le_type, self.config[RUN_UUID]),
+        #     "-p": SBATCH_PARTITION,                
+        #     "-t": SBATCH_TIME
+        # }
+
+        # # II. Build the sbatch call
+        # subprocess_cmd = "sbatch"
+        # for arg in sbatch_directives:
+        #     subprocess_cmd += " {0} {1}".format(arg, sbatch_directives[arg])
+        # subprocess_cmd += " {0}{1}qa_line_extraction_final.sh {2} {3} {4}".format(
+        #     os.getcwd(), os.sep,
+        #     le_type, p_book_directory, self.config[RUN_UUID])
+
+        # # III. Run sbatch and save results
+        # slurm_results.append(
+        #     subprocess.Popen(
+        #         subprocess_cmd,
+        #         shell=True,
+        #         stderr=subprocess.PIPE,
+        #         stdout=subprocess.PIPE,
+        #         text=True
+        #     )
+        # )
 
     def __run_on_book(self, p_book_directory):
 

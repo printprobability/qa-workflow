@@ -1,13 +1,18 @@
 # COMMANDS: ["archive"]
 # COMMANDS: ["clear"]
 # COMMANDS: ["run"]
-COMMANDS: ["collate"]
+# COMMANDS: ["collate"]
 # COMMANDS: ["collate_errors"]
 # COMMANDS: ["clear", "run", "collate"]
 # COMMANDS: ["output_stats"]
+COMMANDS: ["data_stats"]
 
-BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/"
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/"
+# RUN_TYPE: "multi"
+
+BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop/"
 RUN_TYPE: "multi"
+
 
 # BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_autocrop_dev/test_autocrop/anon_R300_hrc_8_paradiseregaind1680/"
 # RUN_TYPE: "single"

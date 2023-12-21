@@ -24,6 +24,9 @@ QA_TYPE = "QA_TYPE"
 RUN_TYPE = "RUN_TYPE"
 RUN_UUID = "RUN_UUID"
 
+# Temp
+ERROR_FILE_RUN_UUID = "ERROR_FILE_RUN_UUID"
+
 # Yaml config values
 COMMAND_ARCHIVE = "archive"
 COMMAND_ARCHIVE_LOGS = "archive_logs"

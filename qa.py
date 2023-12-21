@@ -218,6 +218,10 @@ def save_config(p_args):
     else:
         qa_config[RUN_UUID] = get_unique_uuid(qa_config[OUTPUT_DIRECTORY], MERGED_RESULTS_FILENAME_PREFIX + "*")
 
+    # Temp
+    if ERROR_FILE_RUN_UUID in config_yaml:
+        qa_config[ERROR_FILE_RUN_UUID] = config_yaml[ERROR_FILE_RUN_UUID]
+
     return success
 
 def main():

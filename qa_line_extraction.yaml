@@ -3,15 +3,26 @@
 # COMMANDS: ["run"]
 # COMMANDS: ["collate"]
 # COMMANDS: ["collate_errors"]
-COMMANDS: ["clear_results"]
+# COMMANDS: ["clear_results"]
+COMMANDS: ["output_stats"]
 
-# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/"
-# RUN_TYPE: "multi"
+BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/"
+RUN_TYPE: "multi"
 
-BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/tbraddyll_R4267_duke_8_essaytoheraldry1684/"
-RUN_TYPE: "single"
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/jgaines_R37025_uk_8_compleatephemeris1685/"
+# RUN_TYPE: "single"
+
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/jgrover_R19325_uk_8_speculumperspicuumuranicum1680/"
+# RUN_TYPE: "single"
+
+# BOOK_DIRECTORY: "/ocean/projects/hum160002p/shared/books/test_qa/test_line_extraction/tbraddyll_R4267_duke_8_essaytoheraldry1684/"
+# RUN_TYPE: "single"
 
 OUTPUT_DIRECTORY: "/ocean/projects/hum160002p/shared/books/code/qa_workflow/logs/"
 
+<<<<<<< Updated upstream
 QA_SUBTYPE: "eynollah"
 # QA_SUBTYPE: "watershed"
+=======
+ERROR_FILE_RUN_UUID: "5cc2095a-ce68-4af5-91fb-631adde0efb8"
+>>>>>>> Stashed changes
