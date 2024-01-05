@@ -5,6 +5,8 @@
 #SBATCH -p RM-shared
 #SBATCH -o ./logs/qa_slurm-%j.out
 
+# Starting point for all QA modules
+
 if [ -z "$1" ] || [ -z "$2" ]
 then
     exit "run_qa.sh must be supplied with a qa module name and a config file."
