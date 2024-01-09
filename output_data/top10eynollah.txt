@@ -1,0 +1,50 @@
+================================================================================
+	Image: everingham_R13447_uklw_8_newexperimentsobservationsicy1682-0100.tif
+	Time: 0.4
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/everingham_R13447_uklw_8_newexperimentsobservationsicy1682_non_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/everingham_R13447_uklw_8_newexperimentsobservationsicy1682_non_threshold_by_inside/slurm-21565802_73.out
+================================================================================
+	Image: tbraddyll_R4267_duke_8_essaytoheraldry1684-0075.tif
+	Time: 0.5
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/tbraddyll_R4267_duke_8_essaytoheraldry1684_non_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/tbraddyll_R4267_duke_8_essaytoheraldry1684_non_threshold_by_inside/slurm-21565818_14.out
+================================================================================
+	Image: bridge_R1139_uk_8_thetaghmicalart1698-0187.tif
+	Time: 0.5
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/bridge_R1139_uk_8_thetaghmicalart1698_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/bridge_R1139_uk_8_thetaghmicalart1698_threshold_by_inside/slurm-21565798_139.out
+================================================================================
+	Image: anon_R23994_caolucdl_4_quakerismsubverted1677-0043.tif
+	Time: 0.5
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/anon_R23994_caolucdl_4_quakerismsubverted1677_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/anon_R23994_caolucdl_4_quakerismsubverted1677_threshold_by_inside/slurm-21565724_36.out
+================================================================================
+	Image: tbraddyll_R4267_duke_8_essaytoheraldry1684-0079.tif
+	Time: 0.6
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/tbraddyll_R4267_duke_8_essaytoheraldry1684_non_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/tbraddyll_R4267_duke_8_essaytoheraldry1684_non_threshold_by_inside/slurm-21565818_17.out
+================================================================================
+	Image: tbraddyll_R4267_duke_8_essaytoheraldry1684-0083.tif
+	Time: 0.6
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/tbraddyll_R4267_duke_8_essaytoheraldry1684_non_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/tbraddyll_R4267_duke_8_essaytoheraldry1684_non_threshold_by_inside/slurm-21565818_20.out
+================================================================================
+	Image: mwhite_R7036_uk_8_ThedurablelegacyByH1681-0009.tif
+	Time: 0.6
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/mwhite_R7036_uk_8_ThedurablelegacyByH1681_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/mwhite_R7036_uk_8_ThedurablelegacyByH1681_threshold_by_inside/slurm-21565776_0.out
+================================================================================
+	Image: anon_R11260_wellcome_4_generalhistoryair1692-0136.tif
+	Time: 0.6
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/anon_R11260_wellcome_4_generalhistoryair1692_non_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/anon_R11260_wellcome_4_generalhistoryair1692_non_threshold_by_inside/slurm-21565732_93.out
+================================================================================
+	Image: macock_R19185_njp_12_discourseconcerningprayer1686-0194.tif
+	Time: 0.6
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/macock_R19185_njp_12_discourseconcerningprayer1686_non_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/macock_R19185_njp_12_discourseconcerningprayer1686_non_threshold_by_inside/slurm-21565786_90.out
+================================================================================
+	Image: macock_R19185_njp_12_discourseconcerningprayer1686-0268.tif
+	Time: 0.6
+	Directory: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/macock_R19185_njp_12_discourseconcerningprayer1686_threshold_by_inside/
+	Log file: /ocean/projects/hum160002p/shared/books/test_qa/test_eynollah_flat/macock_R19185_njp_12_discourseconcerningprayer1686_threshold_by_inside/slurm-21565799_220.out
