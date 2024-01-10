@@ -422,6 +422,138 @@ def format_path(original_path):
     '''Make sure given path ends with system folder separator'''
     return original_path if original_path.endswith(os.sep) else original_path + os.sep
 
+def get_fastest_eynollah_images(p_book_directory, p_n):
+
+    eynollah_run_time_key = "INFO:eynollah:Job done in "
+    eynollah_command = "eynollah -m"
+    image_times = {}
+
+    # 1. Read slurm log files for images in each book directory
+    book_directories = get_items_in_dir(p_book_directory, ["directories"])
+    for book_directory in book_directories:
+
+        book_directory_fullpath = format_path(os.path.join(p_book_directory, book_directory))
+        for log_filepath in glob.glob(book_directory_fullpath + "*.out"):
+
+            image_filename = None
+            run_time = None
+
+            with open(log_filepath, "r") as log_file:
+                lines = log_file.readlines()
+                for line in lines:
+
+                    # A. Look for image filename
+                    if line.startswith(eynollah_command):
+                        image_filename = os.path.basename(line.split(" ")[4])
+
+                    # B. Look for line that indicates the completion time of this eynollah run
+                    if line.startswith(eynollah_run_time_key):
+                        run_time = float(line.split(" ")[3].strip().strip("s"))
+
+                    if image_filename and run_time:
+                        image_times[image_filename] = {
+                            "directory": book_directory_fullpath,
+                            "log_filepath": log_filepath,
+                            "run_time": run_time
+                        }
+
+    
+
+    # 2. Determine lowest N eynollah completion times
+    sorted_times = [(it_key, image_times[it_key]["run_time"]) for it_key in image_times]
+    sorted_times = sorted(sorted_times, key=lambda image_info: image_info[1])
+
+    time_range = [0,0]
+    time_range[0] = min([item[1] for item in sorted_times])
+    time_range[1] = max([item[1] for item in sorted_times])
+
+    print("Number of images: {0}".format(len(image_times.items())))
+    print(f"Lowest time: {time_range[0]}")
+    print(f"Highest time: {time_range[1]}")
+
+    print(f"{p_n} images with lowest times:")
+    for index in range(int(p_n)):
+        image_filename = sorted_times[index][0]
+        print("=" * 80)
+        print(f"\tImage: {image_filename}")
+        print(f"\tTime: {sorted_times[index][1]}")
+        print(f"\tDirectory: {image_times[image_filename]['directory']}")
+        print(f"\tLog file: {image_times[image_filename]['log_filepath']}")
+
+def get_eynollah_times(p_book_directory):
+
+    import matplotlib.pyplot as plt
+    import numpy as np    
+
+    booklevel_stats = {}
+
+    # 1. Read in book level start logs
+    for slurm_log_file in glob.glob(p_book_directory + os.sep + "*.out"):
+
+        with open(os.path.join(p_book_directory, slurm_log_file)) as log_file:
+            log_lines = log_file.readlines()
+
+        book_name = None
+
+        # A. Save part 1 job ID from filename
+        filename = os.path.basename(slurm_log_file)
+        job_id = filename[filename.find("-") + 1:]
+        job_id = job_id.strip(".out")
+
+        for line in log_lines:
+
+            # B. Save book name
+            if line.startswith("BOOK NAME:"):
+                book_name = line[line.find(":") + 2:].strip()
+                booklevel_stats[book_name] = { "jobid_part1": job_id }
+            
+            # C. Get start time
+            if line.startswith("Thu"):
+                booklevel_stats[book_name]["book_starttime"] = line.split(" ")[3]
+
+            # D. Get ID of dependent job (part 2)
+            if line.startswith("sbatch --dependency=afterany:"):
+                line_parts = line.split(" ")
+                booklevel_stats[book_name]["jobid_part2"] = line_parts[1].split(":")[1].strip()
+                
+        # E. Get end time of part 2 job
+        for name in booklevel_stats:
+            part2_filename = f"slurm-{booklevel_stats[name]['jobid_part2']}.out"
+            if os.path.exists(os.path.join(p_book_directory, part2_filename)):
+                with open(os.path.join(p_book_directory, part2_filename), "r") as part2_logfile:
+                    pass
+
+        # F. Calculate and store book run time
+        for name in booklevel_stats:
+            # booklevel_stats[name]["book_endtime"] = 0
+            # booklevel_stats[name]["book_runtime"] = booklevel_stats[name]["book_endtime"] - booklevel_stats[name]["book_starttime"]
+            pass
+
+    # 2. For each book, read page level logs
+    for name in booklevel_stats:
+
+        booklevel_stats[name]["page_seconds_list"] = []
+
+        # A. Get runtime for each page
+        for page_logfilepath in glob.glob(os.path.join(p_book_directory, name) + os.sep + "*.out"):
+            
+            with open(page_logfilepath, "r") as page_logfile:
+                lines = page_logfile.readlines()
+                for line in lines:
+                    if line.startswith("INFO:eynollah:Job done in "):
+                        line_parts = line.split("INFO:eynollah:Job done in ")
+                        seconds = line_parts[1].strip()
+                        seconds = float(seconds[0:len(seconds) - 3])
+                        booklevel_stats[name]["page_seconds_list"].append(seconds)
+
+    # 3. Calculate distribution for book run times and output data to file
+    flattened_page_seconds = [seconds for name in booklevel_stats for seconds in booklevel_stats[name]["page_seconds_list"] ]
+    print("Flattened seconds: {0}".format(flattened_page_seconds))
+
+    # 4. Calculate distributions for page run times and output data to file
+    plt.hist(flattened_page_seconds, color="lightgreen", ec="black", bins=10)
+    plt.show()
+
 def get_uniquer_error_line(p_error):
 
     error_search_string = "Error:"
