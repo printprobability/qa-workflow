@@ -1,6 +1,5 @@
 #!/bin/bash
-#SBATCH -c 2
-#SBATCH --mem=1999mb
+#SBATCH -ntasks-per-node 1
 #SBATCH -t 12:00:00
 #SBATCH -p RM-shared
 #SBATCH -o ./logs/qa_slurm-%j.out
