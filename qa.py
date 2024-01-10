@@ -112,6 +112,7 @@ def handle_args():
 def run_commands(p_args):
 
     # Special case to call results collation functionality - done when all results have completed
+    # NOTE: Possible candidate for removal when QA modules are linked up for end to end processing
     if p_args.collate:
         qa_module.call_command("collate")
         return
@@ -193,6 +194,10 @@ def save_config(p_args):
         if QA_TYPE_LINE_EXTRACTION == qa_config[QA_TYPE] and QA_SUBTYPE not in qa_config:
             print("A subtype for line extraction must be specified.")
             print("Current options: eynollah, watershed")
+            success = False
+        if QA_SUBTYPE in qa_config and qa_config[QA_SUBTYPE] not in VALID_QA_SUBTYPES:
+            print("Invalid QA subtype given: {0}".format(qa_config[QA_SUBTYPE]))
+            print("Valid subtypes: {0}".format(VALID_QA_SUBTYPES))
             success = False
 
     # 4. Check config elements common to both single and multi-book runs
