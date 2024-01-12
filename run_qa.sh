@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -ntasks-per-node 1
+#SBATCH --ntasks-per-node 1
 #SBATCH -t 12:00:00
 #SBATCH -p RM-shared
 #SBATCH -o ./logs/qa_slurm-%j.out
