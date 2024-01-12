@@ -102,7 +102,7 @@ def handle_args():
             success = False
     if args.qa_function:
         if QA_TYPE_LINE_EXTRACTION == args.qa_function:
-            if not args.qa_subtype:
+            if not args.config_file and not args.qa_subtype:
                 print("A subtype for line extraction must be specified.")
                 print("Current options: eynollah, watershed")
                 success = False
@@ -195,9 +195,9 @@ def save_config(p_args):
             print("A subtype for line extraction must be specified.")
             print("Current options: eynollah, watershed")
             success = False
-        if QA_SUBTYPE in qa_config and qa_config[QA_SUBTYPE] not in VALID_QA_SUBTYPES:
+        if QA_SUBTYPE in qa_config and qa_config[QA_SUBTYPE] not in VALID_QA_LINE_EXTRACTION_SUBTYPES:
             print("Invalid QA subtype given: {0}".format(qa_config[QA_SUBTYPE]))
-            print("Valid subtypes: {0}".format(VALID_QA_SUBTYPES))
+            print("Valid subtypes: {0}".format(VALID_QA_LINE_EXTRACTION_SUBTYPES))
             success = False
 
     # 4. Check config elements common to both single and multi-book runs
