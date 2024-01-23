@@ -17,7 +17,7 @@ import yaml
 # Custom
 from qa_autocrop import QA_Autocrop
 from qa_constants import *
-from qa_line_extraction import QA_LineExtraction
+from qa_line_extraction import QA_LineExtraction, QA_LineExtraction_Eynollah, QA_LineExtraction_Watershed
 from qa_utilities import *
 
 

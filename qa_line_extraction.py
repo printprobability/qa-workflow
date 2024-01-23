@@ -137,7 +137,7 @@ class QA_LineExtraction(QA_Module):
 
             book_name = Path(self.config[BOOK_DIRECTORY]).name
             booklevel_stats = {
-                book_name: self.__output_stats_on_book(self.config[BOOK_DIRECTORY])
+                book_name: self._Base__output_stats_on_book(self.config[BOOK_DIRECTORY])
             }
             self.__output_stats_runlevel(booklevel_stats)
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
@@ -154,7 +154,7 @@ class QA_LineExtraction(QA_Module):
         booklevel_stats = {}
         for book_name in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]):
             if DIRECTORY_QA_RESULTS != book_name:
-                booklevel_stats[book_name] = self.__output_stats_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name))
+                booklevel_stats[book_name] = self._Base__output_stats_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name))
 
         # 2. Output one file containing booklevel stats of for whole line extraction run
         self.__output_stats_runlevel(booklevel_stats)
@@ -165,7 +165,7 @@ class QA_LineExtraction(QA_Module):
         print("Exiting QA_LineExtraction.__output_stats_on_all_books")
 
     @abstractmethod
-    def __output_stats_on_book(self, p_book_directory):
+    def _Base__output_stats_on_book(self, p_book_directory):
         raise NotImplementedError("Must override QA_LineExtraction.__output_stats_on_book")
 
     # 'run' command and helpers
@@ -177,7 +177,7 @@ class QA_LineExtraction(QA_Module):
         self.slurm_job_results = []
 
         if RUN_TYPE_SINGLE == self.config[RUN_TYPE]:
-            self.slurm_job_results = self.__run_on_book(self.config[BOOK_DIRECTORY])
+            self.slurm_job_results = self._Base__run_on_book(self.config[BOOK_DIRECTORY])
         elif RUN_TYPE_MULTI == self.config[RUN_TYPE]:
             self.slurm_job_results = self.__run_on_all_books()
 
@@ -197,7 +197,7 @@ class QA_LineExtraction(QA_Module):
             if Path(self.config[OUTPUT_DIRECTORY]).name != book_name ]
     
     @abstractmethod
-    def __run_on_book(self, p_book_directory):
+    def _Base__run_on_book(self, p_book_directory):
         raise NotImplementedError("Must override QA_LineExtraction.__run_on_book")
 
 class QA_LineExtraction_Eynollah(QA_LineExtraction):

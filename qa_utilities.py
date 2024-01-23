@@ -18,7 +18,7 @@ import subprocess
 import sys
 import _thread
 import uuid
-from abc import ABC
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 # Third party
@@ -174,11 +174,19 @@ class QA_Module(ABC):
 
         print("Exiting QA_Module.data_stats")
 
+    @abstractmethod
+    def _Base__output_stats_on_book(self, p_book_directory):
+        raise NotImplementedError("Must override QA_LineExtraction.__output_stats_on_book")
+
     def run(self):
 
         print("Entering/exiting QA_Module.run")
 
         pass
+
+    @abstractmethod
+    def _Base__run_on_book(self, p_book_directory):
+        raise NotImplementedError("Must override QA_LineExtraction.__run_on_book")
 
     # Process queue methods
     def is_process_finished(self, p_description):
@@ -798,6 +806,9 @@ def str_to_class(module_name, class_name):
 
     """Return a class instance from a string reference"""
     # Taken from https://stackoverflow.com/a/24674853/3831152
+
+    print(f"module_name: {module_name}")
+    print(f"class_name: {class_name}")
 
     try:
         module_ = importlib.import_module(module_name)
