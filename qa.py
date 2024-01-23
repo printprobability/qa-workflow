@@ -100,12 +100,6 @@ def handle_args():
         elif not os.path.isdir(output_parent_directory):
             print("Output directory's parent: {0} is not a directory.".format(output_parent_directory))
             success = False
-    if args.qa_function:
-        if QA_TYPE_LINE_EXTRACTION == args.qa_function:
-            if not args.config_file and not args.qa_subtype:
-                print("A subtype for line extraction must be specified.")
-                print("Current options: eynollah, watershed")
-                success = False
 
     return args, success
 
@@ -177,8 +171,6 @@ def save_config(p_args):
         # NOTE: RUN_TYPE can also be 'single' here to indicate a single book run that is using a config file
         if RUN_TYPE in config_yaml:
             qa_config[RUN_TYPE] = config_yaml[RUN_TYPE]
-        if QA_SUBTYPE in config_yaml:
-            qa_config[QA_SUBTYPE] = config_yaml[QA_SUBTYPE]
 
         # B. Check contents of config file
         if not all(cmd in config_yaml.keys() for cmd in config_required_fields):
@@ -190,14 +182,6 @@ def save_config(p_args):
                 success = False
         if qa_config[QA_TYPE] not in VALID_QA_TYPES:
             print("{0} is an invalid qa type. Valid qa types: {1}".format(qa_config[QA_TYPE], VALID_QA_TYPES))
-            success = False
-        if QA_TYPE_LINE_EXTRACTION == qa_config[QA_TYPE] and QA_SUBTYPE not in qa_config:
-            print("A subtype for line extraction must be specified.")
-            print("Current options: eynollah, watershed")
-            success = False
-        if QA_SUBTYPE in qa_config and qa_config[QA_SUBTYPE] not in VALID_QA_LINE_EXTRACTION_SUBTYPES:
-            print("Invalid QA subtype given: {0}".format(qa_config[QA_SUBTYPE]))
-            print("Valid subtypes: {0}".format(VALID_QA_LINE_EXTRACTION_SUBTYPES))
             success = False
 
     # 4. Check config elements common to both single and multi-book runs
