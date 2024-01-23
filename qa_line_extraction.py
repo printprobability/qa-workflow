@@ -13,6 +13,7 @@ import os
 import shutil
 import subprocess
 import traceback
+from abc import abstractmethod
 from datetime import datetime
 from pathlib import Path
 from statistics import median, variance
@@ -86,14 +87,18 @@ class QA_LineExtraction(QA_Module):
 
     def __init__(self, p_config):
 
+        print("Entering QA_LineExtraction.__init__")
+
         self.config = p_config
         self.slurm_job_results = []
 
-    # 'archive' commands
+        print("Exiting QA_LineExtraction.__init__")
+
+    # 'archive' subcommands
 
     def archive_logs(self):
 
-        print("Entering archive_logs")
+        print("Entering QA_LineExtraction.archive_logs")
 
         # 0. Make an 'archive' folder in the output directory if it does not exist
         if not os.path.exists(self.config[OUTPUT_DIRECTORY] + ARCHIVE_DIRECTORY):
@@ -159,6 +164,10 @@ class QA_LineExtraction(QA_Module):
 
         print("Exiting QA_LineExtraction.__output_stats_on_all_books")
 
+    @abstractmethod
+    def __output_stats_on_book(self, p_book_directory):
+        raise NotImplementedError("Must override QA_LineExtraction.__output_stats_on_book")
+
     # 'run' command and helpers
 
     def run(self):
@@ -186,8 +195,20 @@ class QA_LineExtraction(QA_Module):
         return [ self.__run_on_book(format_path(self.config[BOOK_DIRECTORY] + book_name)) \
             for book_name in get_items_in_dir(self.config[BOOK_DIRECTORY], ["directories"]) \
             if Path(self.config[OUTPUT_DIRECTORY]).name != book_name ]
+    
+    @abstractmethod
+    def __run_on_book(self, p_book_directory):
+        raise NotImplementedError("Must override QA_LineExtraction.__run_on_book")
 
 class QA_LineExtraction_Eynollah(QA_LineExtraction):
+
+    def __init__(self, p_config):
+
+        print("Entering QA_LineExtraction_Eynollah.__init__")
+
+        super().__init__(p_config)
+
+        print("Exiting QA_LineExtraction_Eynollah.__init__")
 
     # 'clear' subcommands
 
@@ -333,7 +354,7 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
 
     # 'output_stats' helpers
 
-    def __output_stats_on_book(self, p_book_directory):
+    def _Base__output_stats_on_book(self, p_book_directory):
 
         print("Entering QA_LineExtraction_Eynollah.__output_stats_on_book")
 
@@ -728,7 +749,7 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
 
     # 'run' helpers
 
-    def __run_on_book(self, p_book_directory):
+    def _Base__run_on_book(self, p_book_directory):
 
         print("Entering QA_LineExtraction_Eynollah.__run_on_book")
 
@@ -923,7 +944,7 @@ class QA_LineExtraction_Watershed(QA_LineExtraction):
                 
     # 'output_stats' helpers
 
-    def __output_stats_on_book(self, p_book_directory):
+    def _Base__output_stats_on_book(self, p_book_directory):
 
         print("Entering QA_LineExtraction_Watershed.__output_stats_on_book")
 
@@ -1299,7 +1320,7 @@ class QA_LineExtraction_Watershed(QA_LineExtraction):
 
     # 'run' helpers
 
-    def __run_on_book(self, p_book_directory):
+    def _Base__run_on_book(self, p_book_directory):
 
         print("Entering QA_LineExtraction_Watershed.__run_on_book")
 

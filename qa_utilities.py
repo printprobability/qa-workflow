@@ -18,6 +18,7 @@ import subprocess
 import sys
 import _thread
 import uuid
+from abc import ABC
 from pathlib import Path
 
 # Third party
@@ -30,7 +31,7 @@ from qa_constants import *
 # Classes
 
 # QA module base class
-class QA_Module:
+class QA_Module(ABC):
 
     def __init__(self, p_config):
         
