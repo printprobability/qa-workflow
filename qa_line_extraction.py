@@ -126,7 +126,7 @@ class QA_LineExtraction(QA_Module):
                 wait_while_exists(filepath)
 
         print("Exiting QA_LineExtraction.clear_logs")
-    
+        
     # 'output_stats' command and helpers
 
     def output_stats(self):
@@ -1372,124 +1372,10 @@ def parse_args():
 
     return args
 
-# def run_line_extraction_eynollah_unused(p_args):
 
-#     if RUN_TYPE_SINGLE == qa_config[RUN_TYPE]:
+def run_line_extraction_watershed(p_args):
 
-#     subprocess_args = [
-
-#         "eynollah",
-#         "-m",
-#         QA_CODE_DIRECTORY + os.sep + EYNOLLAH_MODEL_DIRECTORY,
-#         "-di",
-#         DIRECTORY_PAGES_COLOR,
-#         "-o",
-#         EYNOLLAH_OUTPUT_DIRECTORY,
-#         "-ep",
-#         "-cl",
-#         "-sa",
-#         EYNOLLAH_OUTPUT_DIRECTORY,
-#         "-si",
-#         EYNOLLAH_OUTPUT_DIRECTORY + os.sep + EYNOLLAH_EXTRACTED_IMAGES_DIRECTORY
-#     ] 
-
-# def run_line_extraction_eynollah_old(args):
-
-#     # 0. Show start time
-#     print(f"Eynollah line extraction start time: {datetime.now()}")
-
-#     book_directory = format_path(args.book_directory)
-#     book_name = Path(book_directory).name
-
-#     # 1. Prepare directory for line extraction and its QA
-#     print(f"Preparing directory {book_name} for {LINEEXTRACTION_TYPE_EYNOLLAH} line extraction QA...")
-
-#     # A. Make subdirectories that will be used by the line extraction script
-#     print("Making necessary subdirectories...")
-#     makedirs(book_directory + DIRECTORY_PAGES)
-#     makedirs(book_directory + DIRECTORY_PAGES_COLOR)
-#     makedirs(book_directory + DIRECTORY_LINES)
-#     makedirs(book_directory + DIRECTORY_LINES_COLOR)
-#     makedirs(book_directory + EYNOLLAH_OUTPUT_DIRECTORY)
-#     makedirs(book_directory + EYNOLLAH_OUTPUT_DIRECTORY + os.sep + EYNOLLAH_EXTRACTED_IMAGES_DIRECTORY)
-#     makedirs(book_directory + EYNOLLAH_OUTPUT_DIRECTORY + os.sep + EYNOLLAH_PAGE_XML_DIRECTORY)
-
-#     # B. Copy the page images to the line extraction subdirectories
-#     for image_filepath in glob.glob(book_directory + "*.tif"):
-#         shutil.copy(image_filepath, book_directory + DIRECTORY_PAGES)
-#         shutil.copy(image_filepath, book_directory + DIRECTORY_PAGES_COLOR)
-    
-#     # 2. Run Eynollah line extraction on all color pages
-#     print(f"Running eynollah line extraction on {book_directory}...")
-    
-#     # A. Build subprocess command
-#     subprocess_args = [
-
-#         "eynollah",
-#         "-m",
-#         QA_CODE_DIRECTORY + os.sep + EYNOLLAH_MODEL_DIRECTORY,
-#         "-di",
-#         DIRECTORY_PAGES_COLOR,
-#         "-o",
-#         EYNOLLAH_OUTPUT_DIRECTORY,
-#         "-ep",
-#         "-cl",
-#         "-sa",
-#         EYNOLLAH_OUTPUT_DIRECTORY,
-#         "-si",
-#         EYNOLLAH_OUTPUT_DIRECTORY + os.sep + EYNOLLAH_EXTRACTED_IMAGES_DIRECTORY
-#     ]   
-
-#     # B. Run Eynollah line extraction
-#     print(" ".join(subprocess_args))
-#     subprocess.run(subprocess_args)
-
-#     # C. Move output xml files to 'pagexml' directory
-#     for xml_filepath in glob.glob(book_directory + os.sep + EYNOLLAH_OUTPUT_DIRECTORY + "*.xml"):
-#         shutil.move(xml_filepath, EYNOLLAH_OUTPUT_DIRECTORY + os.sep + EYNOLLAH_PAGE_XML_DIRECTORY)
-    
-#     print(f"Done running eynollah line extraction on {book_directory}.")
-
-#     # NOTE: Temporarily leave out this step for initial testing of eynollah method
-#     line_image_extraction = False
-
-#     if line_image_extraction:
-
-#         # 3. Extract minAreaRect lines from files in 'pagexml'
-#         # NOTE: Extracts both b/w and color lines from pages/pages_color subdirectories.
-#         # We filter out lines above a certain height and below a certain width,
-#         # and we standardize line heights for Ocular.
-
-#         print("Starting line extraction on eynollah xml output...")
-        
-#         # A. Build subprocess command
-#         subprocess_args = [
-
-#             "python3",
-#             "-u",
-#             os.path.join(QA_CODE_DIRECTORY, EYNOLLAH_LINE_IMAGE_EXTRACTION_SCRIPT),
-#             EYNOLLAH_OUTPUT_DIRECTORY,
-#             "line_minarearect_coords.csv",
-#             DIRECTORY_PAGES_COLOR,
-#             DIRECTORY_PAGES,
-#             "--lines_output_directory",
-#             DIRECTORY_LINES,
-#             "--color_lines_output_directory",
-#             DIRECTORY_LINES_COLOR,
-#             "--ext",
-#             "tif"
-#         ]
-
-#         # B. Run Eynollah line image extraction script
-#         print(" ".join(subprocess_args))
-#         subprocess.run(subprocess_args)
-
-#     # 4. Show end time
-#     print(f"Eynollah line extraction end time: {datetime.now()}")
-
-def run_line_extraction_watershed(args):
-
-    book_directory = format_path(args.book_directory)
+    book_directory = format_path(p_args.book_directory)
     book_name = Path(book_directory).name
 
     # 1. Prepare directory for line extraction and its QA
