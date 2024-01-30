@@ -400,11 +400,6 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
 
             csv_reader = csv.DictReader(line_df_file)
 
-            if 0 == len(list(csv_reader)):
-                print(f"ERROR: Line extraction output file {LINEEXTRACTION_WATERSHED_METADATA_FILE} is empty.")
-                print("Exiting QA_LineExtraction.__output_stats_on_book_watershed")
-                return csv_results
-
             # A. Store information for each line on each page
             for line_row in csv_reader:
 
@@ -460,7 +455,7 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
                 # csv_results["images"][image_name]["lines"][line_number]["error(s)"] = "N/A"
                 # if line_row["file_name"] in error_lookup:
                 #     csv_results["images"][image_name]["lines"][line_number]["error(s)"] = error_lookup[line_row["file_name"]]
-            
+
             # B. Calculate line metrics for page
             for image_name in csv_results["images"]:
 
@@ -507,17 +502,12 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
                 ]
                 csv_results["images"][image_name]["median_norm_height"] = median(norm_heights)
 
-             # 3. Output a csv file of these stats in the line extraction results folder
-            
+        # 3. Output a csv file of these stats in the line extraction results folder    
         stats_filepath = results_folder + "{0}{1}_{2}.csv".format(
             RESULTS_FILENAME_PREFIX.format(LINEEXTRACTION_TYPE_EYNOLLAH),
             Path(p_book_directory).name,
             self.config[RUN_UUID]
         )
-
-        print("csv_results['images'] contents:")
-        for image_name in csv_results["images"]:
-            print(f"{csv_results['images'][image_name]}\n")
 
         with open(stats_filepath, "w") as output_file:
 
@@ -533,7 +523,7 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
                 "area_all_lines",
                 "num_lines",
                 "variance_line_height",
-                "median_line_height"
+                "median_line_height",
                 "median_norm_height"
             ])
 
@@ -699,7 +689,7 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
 
         print("Exiting QA_LineExtraction_Eynollah.__merge_booklevel_statsfiles_watershed")
 
-    def __output_stats_runlevel(self, p_booklevel_stats):
+    def _QA_LineExtraction__output_stats_runlevel(self, p_booklevel_stats):
 
         print("Entering QA_LineExtraction_Eynollah.__output_stats_runlevel")
 
@@ -729,20 +719,23 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
 
             for book_name in p_booklevel_stats:
 
+                print(f"Book level stats for {book_name}:")
+                print(f"{p_booklevel_stats[book_name]}")                
+
                 csv_writer.writerow([
 
                     book_name,
-                    p_booklevel_stats[book_name][le_type]["total_pages"],
-                    p_booklevel_stats[book_name][le_type]["total_lines"],
-                    "N/A",# p_booklevel_stats[book_name][le_type]["total_errors"],
-                    "N/A", # p_booklevel_stats[book_name][le_type]["total_unique_errors"],
-                    p_booklevel_stats[book_name][le_type]["median_image_width"],
-                    p_booklevel_stats[book_name][le_type]["median_image_height"],
-                    p_booklevel_stats[book_name][le_type]["median_image_area"],
-                    p_booklevel_stats[book_name][le_type]["median_area_all_lines"],
-                    p_booklevel_stats[book_name][le_type]["median_line_height_median"],
-                    p_booklevel_stats[book_name][le_type]["median_variance_line_height"],
-                    p_booklevel_stats[book_name][le_type]["median_line_norm_height_median"]
+                    p_booklevel_stats[book_name]["book"]["total_pages"],
+                    p_booklevel_stats[book_name]["book"]["total_lines"],
+                    "N/A",# p_booklevel_stats[book_name]["total_errors"],
+                    "N/A", # p_booklevel_stats[book_name]["total_unique_errors"],
+                    p_booklevel_stats[book_name]["book"]["median_image_width"],
+                    p_booklevel_stats[book_name]["book"]["median_image_height"],
+                    p_booklevel_stats[book_name]["book"]["median_image_area"],
+                    p_booklevel_stats[book_name]["book"]["median_area_all_lines"],
+                    p_booklevel_stats[book_name]["book"]["median_line_height_median"],
+                    p_booklevel_stats[book_name]["book"]["median_variance_line_height"],
+                    p_booklevel_stats[book_name]["book"]["median_line_norm_height_median"]
                 ])                    
 
         print("Exiting QA_LineExtraction_Eynollah.__output_stats_runlevel")
@@ -796,7 +789,6 @@ class QA_LineExtraction_Eynollah(QA_LineExtraction):
         print("Exiting QA_LineExtraction_Eynollah.__run_on_book")           
         
         return slurm_results
-
 
 class QA_LineExtraction_Watershed(QA_LineExtraction):
 
@@ -1272,7 +1264,7 @@ class QA_LineExtraction_Watershed(QA_LineExtraction):
 
         print("Exiting QA_LineExtraction_Watershed.__merge_booklevel_statsfiles")
 
-    def __output_stats_runlevel(self, p_booklevel_stats):
+    def _QA_LineExtraction__output_stats_runlevel(self, p_booklevel_stats):
 
         print("Entering QA_LineExtraction_Watershed.__output_stats_runlevel")
 
@@ -1304,16 +1296,16 @@ class QA_LineExtraction_Watershed(QA_LineExtraction):
                 csv_writer.writerow([
 
                     book_name,
-                    p_booklevel_stats[book_name][le_type]["total_pages"],
-                    p_booklevel_stats[book_name][le_type]["total_lines"],
-                    p_booklevel_stats[book_name][le_type]["total_errors"],
-                    p_booklevel_stats[book_name][le_type]["total_unique_errors"],
-                    p_booklevel_stats[book_name][le_type]["median_image_width"],
-                    p_booklevel_stats[book_name][le_type]["median_image_height"],
-                    p_booklevel_stats[book_name][le_type]["median_image_area"],
-                    p_booklevel_stats[book_name][le_type]["median_area_all_lines"],
-                    p_booklevel_stats[book_name][le_type]["median_line_height_median"],
-                    p_booklevel_stats[book_name][le_type]["median_variance_line_height"]
+                    p_booklevel_stats[book_name]["total_pages"],
+                    p_booklevel_stats[book_name]["total_lines"],
+                    p_booklevel_stats[book_name]["total_errors"],
+                    p_booklevel_stats[book_name]["total_unique_errors"],
+                    p_booklevel_stats[book_name]["median_image_width"],
+                    p_booklevel_stats[book_name]["median_image_height"],
+                    p_booklevel_stats[book_name]["median_image_area"],
+                    p_booklevel_stats[book_name]["median_area_all_lines"],
+                    p_booklevel_stats[book_name]["median_line_height_median"],
+                    p_booklevel_stats[book_name]["median_variance_line_height"]
                 ])
 
         print("Exiting QA_LineExtraction_Watershed.__output_stats_runlevel")
