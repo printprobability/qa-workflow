@@ -802,6 +802,54 @@ def scale_image(p_image_filepath, p_scale_factor, p_scale_tag="scaled"):
     new_image_name = f"{Path(p_image_filepath).stem}_{p_scale_tag}{Path(p_image_filepath).suffix}"
     image.save(os.path.join(Path(p_image_filepath).parent, new_image_name)) 
 
+def shootout(p_id_field, p_input_csvs_filepath, p_output_filepath=None):
+    
+    # 0. Output defaults to 'shootout_output' csv in local directory
+    output_filepath = f"{os.getcwd()}{os.sep}shootout_output.csv" if None == p_output_filepath else p_output_filepath
+    
+    # 0. Read list of input CSVs from a text file
+    with open(p_input_csvs_filepath, "r") as csv_list:
+        files_to_compare = [filepath.strip() for filepath in list(csv_list.readlines())]
+        
+    # 1. Create one big dictionary for all csv files
+    compare_dict = {}
+    csv_keys = []
+    for filepath in files_to_compare:
+        
+        with open(filepath, "r") as input_file:
+            
+            csv_reader = csv.DictReader(input_file)
+            compare_dict[Path(filepath).name] = {}
+            csv_keys.extend(list(csv_reader.fieldnames))
+            
+            for row in csv_reader:
+                compare_dict[Path(filepath).name][row[p_id_field]] = { key: row[key] for key in csv_reader.fieldnames }
+                
+    # 2. Write out the results
+    with open(output_filepath, "w") as output_file:
+        
+        # A. Write out a header of the keys
+        all_keys = list(set(csv_keys) - set(p_id_field))
+        output_file.write(f"{p_id_field},{','.join(all_keys)}\n")
+        
+        # B. Build and write rows to disk
+        for filename in compare_dict:
+            for id_field in compare_dict[filename]:
+                
+                file_demarked_id = Path(filename).stem + "_" + compare_dict[filename][id_field][p_id_field]
+                col_values = [file_demarked_id]
+                for key in all_keys:
+                    
+                    # I. Prepend the filename sans tag for each common id field
+                    if p_id_field == key:
+                        continue
+                    # II. Else, look to see if the column name (key) exists for this file or just put 'N/A'
+                    else:
+                        col_values.append(compare_dict[filename][id_field][key] if key in compare_dict[filename][id_field] else "N/A")
+                        
+                output_file.write(",".join(col_values) + "\n")
+    
+    
 def str_to_class(module_name, class_name):
 
     """Return a class instance from a string reference"""
@@ -837,15 +885,20 @@ def wait_while_exists(p_path):
 
 
 def main(p_args):
+    
+    function_name = p_args[1]
+    expected_arg_count = len(inspect.getfullargspec(globals()[function_name])[0])
 
     # Make sure utility function name is given and the arguments it needs
-    if len(p_args) < 2 or len(p_args[2:]) != len(inspect.getfullargspec(globals()[p_args[1]])[0]):
+    if len(p_args) < 2 or len(p_args[2:]) > expected_arg_count:
         print("qa_utilities.py usage: ")
         print("python[3] qa_utilities.py <utility function name> <exact args list for function or none if it has no args>")
+        print(f"Expected {expected_arg_count} args.")
+        print(f"args given: {p_args}")
         return
 
     # Call utility function with the given arguments
-    globals()[p_args[1]](*p_args[2:])
+    globals()[function_name](*p_args[2:])
 
 if "__main__" == __name__:
     main(sys.argv)
