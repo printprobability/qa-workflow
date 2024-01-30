@@ -138,8 +138,6 @@ def save_config(p_args):
     if p_args.single_book:
 
         qa_config[QA_TYPE] = p_args.qa_function
-        if p_args.qa_subtype:
-            qa_config[QA_SUBTYPE] = p_args.qa_subtype
         qa_config[RUN_TYPE] = RUN_TYPE_SINGLE
         qa_config[BOOK_DIRECTORY] = format_path(p_args.book_directory)
 
@@ -147,13 +145,6 @@ def save_config(p_args):
         if not directory_has_files_of_type(qa_config[BOOK_DIRECTORY], ".tif"):
             print("Could not find any tif images in the book directory: {0}.".format(qa_config[BOOK_DIRECTORY]))
             success = False
-
-        # B. Make sure subtype is specified for this process if required
-        if QA_TYPE_LINE_EXTRACTION == qa_config[QA_TYPE]:
-            if not p_args.qa_subtype:
-                print("A subtype for line extraction must be specified.")
-                print("Current options: eynollah, watershed")
-                success = False
     else:
 
         qa_config[RUN_TYPE] = RUN_TYPE_MULTI
